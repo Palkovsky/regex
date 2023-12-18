@@ -150,7 +150,7 @@ pub(super) fn new(
         debug!("skipping literal extraction since prefilters were disabled");
         None
     };
-    let mut core = Core::new(info.clone(), pre.clone(), hirs)?;
+    let mut core = Arc::new(Core::new(info.clone(), pre.clone(), hirs)?);
     // Now that we have our core regex engines built, there are a few cases
     // where we can do a little bit better than just a normal "search forward
     // and maybe use a prefilter when in a start state." However, these cases
@@ -182,7 +182,7 @@ pub(super) fn new(
         }
     };
     debug!("using core strategy");
-    Ok(Arc::new(core))
+    Ok(core)
 }
 
 #[derive(Clone, Debug)]
@@ -902,11 +902,11 @@ impl Strategy for Core {
 
 #[derive(Debug)]
 struct ReverseAnchored {
-    core: Core,
+    core: Arc<Core>,
 }
 
 impl ReverseAnchored {
-    fn new(core: Core) -> Result<ReverseAnchored, Core> {
+    fn new(core: Arc<Core>) -> Result<ReverseAnchored, Arc<Core>> {
         if !core.info.is_always_anchored_end() {
             debug!(
                 "skipping reverse anchored optimization because \
@@ -1114,12 +1114,15 @@ impl Strategy for ReverseAnchored {
 
 #[derive(Debug)]
 struct ReverseSuffix {
-    core: Core,
+    core: Arc<Core>,
     pre: Prefilter,
 }
 
 impl ReverseSuffix {
-    fn new(core: Core, hirs: &[&Hir]) -> Result<ReverseSuffix, Core> {
+    fn new(
+        core: Arc<Core>,
+        hirs: &[&Hir],
+    ) -> Result<ReverseSuffix, Arc<Core>> {
         if !core.info.config().get_auto_prefilter() {
             debug!(
                 "skipping reverse suffix optimization because \
@@ -1499,7 +1502,7 @@ impl Strategy for ReverseSuffix {
 
 #[derive(Debug)]
 struct ReverseInner {
-    core: Core,
+    core: Arc<Core>,
     preinner: Prefilter,
     nfarev: NFA,
     hybrid: wrappers::ReverseHybrid,
@@ -1507,7 +1510,7 @@ struct ReverseInner {
 }
 
 impl ReverseInner {
-    fn new(core: Core, hirs: &[&Hir]) -> Result<ReverseInner, Core> {
+    fn new(core: Arc<Core>, hirs: &[&Hir]) -> Result<ReverseInner, Arc<Core>> {
         if !core.info.config().get_auto_prefilter() {
             debug!(
                 "skipping reverse inner optimization because \
