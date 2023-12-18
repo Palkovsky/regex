@@ -24,6 +24,7 @@ regex engine that needs them. If an engine is unavailable or not used, then a
 cache for it will *not* actually be allocated.
 */
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::{
@@ -600,7 +601,7 @@ impl HybridEngine {
                 // above make it so the lazy DFA can quit at match time.
                 .minimum_cache_clear_count(Some(3))
                 .minimum_bytes_per_state(Some(10));
-            let result = hybrid::dfa::Builder::new()
+            let result = Box::new(hybrid::dfa::Builder::new())
                 .configure(dfa_config.clone())
                 .build_from_nfa(nfa.clone());
             let fwd = match result {
@@ -610,7 +611,7 @@ impl HybridEngine {
                     return None;
                 }
             };
-            let result = hybrid::dfa::Builder::new()
+            let result = Box::new(hybrid::dfa::Builder::new())
                 .configure(
                     dfa_config
                         .clone()
@@ -1098,7 +1099,7 @@ impl ReverseHybrid {
 
 #[derive(Debug)]
 pub(crate) struct ReverseHybridEngine(
-    #[cfg(feature = "hybrid")] hybrid::dfa::DFA,
+    #[cfg(feature = "hybrid")] Box<hybrid::dfa::DFA>,
     #[cfg(not(feature = "hybrid"))] (),
 );
 
@@ -1126,7 +1127,7 @@ impl ReverseHybridEngine {
                 .skip_cache_capacity_check(false)
                 .minimum_cache_clear_count(Some(3))
                 .minimum_bytes_per_state(Some(10));
-            let result = hybrid::dfa::Builder::new()
+            let result = Box::new(hybrid::dfa::Builder::new())
                 .configure(dfa_config)
                 .build_from_nfa(nfarev.clone());
             let rev = match result {

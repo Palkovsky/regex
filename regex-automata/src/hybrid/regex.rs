@@ -14,6 +14,8 @@ find the start offset of a match.
 See the [parent module](crate::hybrid) for examples.
 */
 
+use alloc::boxed::Box;
+
 use crate::{
     hybrid::{
         dfa::{self, DFA},
@@ -81,7 +83,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Regex {
     /// The forward lazy DFA. This can only find the end of a match.
-    forward: DFA,
+    forward: Box<DFA>,
     /// The reverse lazy DFA. This can only find the start of a match.
     ///
     /// This is built with 'all' match semantics (instead of leftmost-first)
@@ -92,7 +94,7 @@ pub struct Regex {
     /// matches of a pattern that matched in the forward direction. Otherwise,
     /// we might wind up finding the "leftmost" starting position of a totally
     /// different pattern!
-    reverse: DFA,
+    reverse: Box<DFA>,
 }
 
 /// Convenience routines for regex and cache construction.
@@ -848,7 +850,11 @@ impl Builder {
     /// assert_eq!(true, re.is_match(&mut cache, "foo123"));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_from_dfas(&self, forward: DFA, reverse: DFA) -> Regex {
+    pub fn build_from_dfas(
+        &self,
+        forward: Box<DFA>,
+        reverse: Box<DFA>,
+    ) -> Regex {
         Regex { forward, reverse }
     }
 

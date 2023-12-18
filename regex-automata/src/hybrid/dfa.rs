@@ -9,6 +9,7 @@ This module also contains a [`hybrid::dfa::Builder`](Builder) and a
 
 use core::{iter, mem::size_of};
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::{
@@ -148,7 +149,7 @@ impl DFA {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new(pattern: &str) -> Result<DFA, BuildError> {
+    pub fn new(pattern: &str) -> Result<Box<DFA>, BuildError> {
         DFA::builder().build(pattern)
     }
 
@@ -174,7 +175,9 @@ impl DFA {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<DFA, BuildError> {
+    pub fn new_many<P: AsRef<str>>(
+        patterns: &[P],
+    ) -> Result<Box<DFA>, BuildError> {
         DFA::builder().build_many(patterns)
     }
 
@@ -197,7 +200,7 @@ impl DFA {
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn always_match() -> Result<DFA, BuildError> {
+    pub fn always_match() -> Result<Box<DFA>, BuildError> {
         let nfa = thompson::NFA::always_match();
         Builder::new().build_from_nfa(nfa)
     }
@@ -216,7 +219,7 @@ impl DFA {
     /// assert_eq!(None, dfa.try_search_fwd(&mut cache, &Input::new("foo"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn never_match() -> Result<DFA, BuildError> {
+    pub fn never_match() -> Result<Box<DFA>, BuildError> {
         let nfa = thompson::NFA::never_match();
         Builder::new().build_from_nfa(nfa)
     }
@@ -3992,7 +3995,7 @@ impl Builder {
     /// If there was a problem parsing or compiling the pattern, then an error
     /// is returned.
     #[cfg(feature = "syntax")]
-    pub fn build(&self, pattern: &str) -> Result<DFA, BuildError> {
+    pub fn build(&self, pattern: &str) -> Result<Box<DFA>, BuildError> {
         self.build_many(&[pattern])
     }
 
@@ -4004,7 +4007,7 @@ impl Builder {
     pub fn build_many<P: AsRef<str>>(
         &self,
         patterns: &[P],
-    ) -> Result<DFA, BuildError> {
+    ) -> Result<Box<DFA>, BuildError> {
         let nfa = self
             .thompson
             .clone()
@@ -4055,7 +4058,7 @@ impl Builder {
     pub fn build_from_nfa(
         &self,
         nfa: thompson::NFA,
-    ) -> Result<DFA, BuildError> {
+    ) -> Result<Box<DFA>, BuildError> {
         let quitset = self.config.quit_set_from_nfa(&nfa)?;
         let classes = self.config.byte_classes_from_nfa(&nfa, &quitset);
         // Check that we can fit at least a few states into our cache,
@@ -4102,7 +4105,7 @@ impl Builder {
         }
         let stride2 = classes.stride2();
         let start_map = StartByteMap::new(nfa.look_matcher());
-        Ok(DFA {
+        Ok(Box::new(DFA {
             config: self.config.clone(),
             nfa,
             stride2,
@@ -4110,7 +4113,7 @@ impl Builder {
             classes,
             quitset,
             cache_capacity,
-        })
+        }))
     }
 
     /// Apply the given lazy DFA configuration options to this builder.
