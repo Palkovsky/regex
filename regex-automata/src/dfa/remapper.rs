@@ -215,11 +215,11 @@ mod dense {
 
 #[cfg(feature = "dfa-onepass")]
 mod onepass {
-    use crate::{dfa::onepass::DFA, util::primitives::StateID};
-
     use super::Remappable;
+    use crate::{dfa::onepass::DFA, util::primitives::StateID};
+    use alloc::boxed::Box;
 
-    impl Remappable for DFA {
+    impl Remappable for Box<DFA> {
         fn state_len(&self) -> usize {
             DFA::state_len(self)
         }

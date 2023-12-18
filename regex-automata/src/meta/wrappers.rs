@@ -369,7 +369,7 @@ impl OnePass {
 
 #[derive(Debug)]
 pub(crate) struct OnePassEngine(
-    #[cfg(feature = "dfa-onepass")] onepass::DFA,
+    #[cfg(feature = "dfa-onepass")] Box<onepass::DFA>,
     #[cfg(not(feature = "dfa-onepass"))] (),
 );
 
@@ -403,7 +403,7 @@ impl OnePassEngine {
                 .starts_for_each_pattern(true)
                 .byte_classes(info.config().get_byte_classes())
                 .size_limit(info.config().get_onepass_size_limit());
-            let result = onepass::Builder::new()
+            let result = Box::new(onepass::Builder::new())
                 .configure(onepass_config)
                 .build_from_nfa(nfa.clone());
             let engine = match result {

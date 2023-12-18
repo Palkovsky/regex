@@ -39,6 +39,7 @@ configuring a one-pass DFA.
 //
 // Thus, in this crate, we call it a one-pass DFA.
 
+use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 
 use crate::{
@@ -353,7 +354,7 @@ impl Builder {
     /// If there was a problem parsing or compiling the pattern, then an error
     /// is returned.
     #[cfg(feature = "syntax")]
-    pub fn build(&self, pattern: &str) -> Result<DFA, BuildError> {
+    pub fn build(&self, pattern: &str) -> Result<Box<DFA>, BuildError> {
         self.build_many(&[pattern])
     }
 
@@ -365,7 +366,7 @@ impl Builder {
     pub fn build_many<P: AsRef<str>>(
         &self,
         patterns: &[P],
-    ) -> Result<DFA, BuildError> {
+    ) -> Result<Box<DFA>, BuildError> {
         let nfa =
             self.thompson.build_many(patterns).map_err(BuildError::nfa)?;
         self.build_from_nfa(nfa)
@@ -392,7 +393,7 @@ impl Builder {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_from_nfa(&self, nfa: NFA) -> Result<DFA, BuildError> {
+    pub fn build_from_nfa(&self, nfa: NFA) -> Result<Box<DFA>, BuildError> {
         // Why take ownership if we're just going to pass a reference to the
         // NFA to our internal builder? Well, the first thing to note is that
         // an NFA uses reference counting internally, so either choice is going
@@ -474,7 +475,7 @@ impl Builder {
 #[derive(Debug)]
 struct InternalBuilder<'a> {
     /// The DFA we're building.
-    dfa: DFA,
+    dfa: Box<DFA>,
     /// An unordered collection of NFA state IDs that we haven't yet tried to
     /// build into a DFA state yet.
     ///
@@ -542,7 +543,7 @@ impl<'a> InternalBuilder<'a> {
         // classes report, since we don't use EOI.
         let alphabet_len = classes.alphabet_len().checked_sub(1).unwrap();
         let stride2 = classes.stride2();
-        let dfa = DFA {
+        let dfa = Box::new(DFA {
             config: config.clone(),
             nfa: nfa.clone(),
             table: vec![],
@@ -559,7 +560,7 @@ impl<'a> InternalBuilder<'a> {
             pateps_offset: alphabet_len,
             // OK because PatternID::MAX*2 is guaranteed not to overflow.
             explicit_slot_start: nfa.pattern_len().checked_mul(2).unwrap(),
-        };
+        });
         InternalBuilder {
             dfa,
             uncompiled_nfa_ids: vec![],
@@ -578,7 +579,7 @@ impl<'a> InternalBuilder<'a> {
     /// particular limit is exceeded. (Some limits, like the total heap memory
     /// used, are configurable. Others, like the total patterns or slots, are
     /// hard-coded based on representational limitations.)
-    fn build(mut self) -> Result<DFA, BuildError> {
+    fn build(mut self) -> Result<Box<DFA>, BuildError> {
         self.nfa.look_set_any().available().map_err(BuildError::word)?;
         for look in self.nfa.look_set_any().iter() {
             // This is a future incompatibility check where if we add any
@@ -1164,7 +1165,7 @@ impl DFA {
     /// ```
     #[cfg(feature = "syntax")]
     #[inline]
-    pub fn new(pattern: &str) -> Result<DFA, BuildError> {
+    pub fn new(pattern: &str) -> Result<Box<DFA>, BuildError> {
         DFA::builder().build(pattern)
     }
 
@@ -1189,7 +1190,9 @@ impl DFA {
     /// ```
     #[cfg(feature = "syntax")]
     #[inline]
-    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<DFA, BuildError> {
+    pub fn new_many<P: AsRef<str>>(
+        patterns: &[P],
+    ) -> Result<Box<DFA>, BuildError> {
         DFA::builder().build_many(patterns)
     }
 
@@ -1228,7 +1231,7 @@ impl DFA {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new_from_nfa(nfa: NFA) -> Result<DFA, BuildError> {
+    pub fn new_from_nfa(nfa: NFA) -> Result<Box<DFA>, BuildError> {
         DFA::builder().build_from_nfa(nfa)
     }
 
@@ -1250,7 +1253,7 @@ impl DFA {
     /// assert_eq!(Some(expected), caps.get_match());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn always_match() -> Result<DFA, BuildError> {
+    pub fn always_match() -> Result<Box<DFA>, BuildError> {
         let nfa = thompson::NFA::always_match();
         Builder::new().build_from_nfa(nfa)
     }
@@ -1272,7 +1275,7 @@ impl DFA {
     /// assert_eq!(None, caps.get_match());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn never_match() -> Result<DFA, BuildError> {
+    pub fn never_match() -> Result<Box<DFA>, BuildError> {
         let nfa = thompson::NFA::never_match();
         Builder::new().build_from_nfa(nfa)
     }
