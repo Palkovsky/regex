@@ -3,6 +3,7 @@ use core::{
     panic::{RefUnwindSafe, UnwindSafe},
 };
 
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use regex_syntax::hir::{literal, Hir};
@@ -468,7 +469,7 @@ impl Core {
             .shrink(false)
             .which_captures(info.config().get_which_captures())
             .look_matcher(lookm);
-        let nfa = thompson::Compiler::new()
+        let nfa = Box::new(thompson::Compiler::new())
             .configure(thompson_config.clone())
             .build_many_from_hir(hirs)
             .map_err(BuildError::nfa)?;
@@ -514,7 +515,7 @@ impl Core {
             // both DFAs fails, it's quite likely that the NFA is large and
             // that it will take quite some time to build the reverse NFA
             // too. So... it's really probably worth it to do this!
-            let nfarev = thompson::Compiler::new()
+            let nfarev = Box::new(thompson::Compiler::new())
                 // Currently, reverse NFAs don't support capturing groups,
                 // so we MUST disable them. But even if we didn't have to,
                 // we would, because nothing in this crate does anything
@@ -1609,7 +1610,7 @@ impl ReverseInner {
             .shrink(false)
             .which_captures(WhichCaptures::None)
             .look_matcher(lookm);
-        let result = thompson::Compiler::new()
+        let result = Box::new(thompson::Compiler::new())
             .configure(thompson_config)
             .build_from_hir(&concat_prefix);
         let nfarev = match result {
