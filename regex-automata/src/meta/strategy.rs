@@ -1522,8 +1522,8 @@ struct ReverseInner {
     core: Arc<Core>,
     preinner: Prefilter,
     nfarev: NFA,
-    hybrid: wrappers::ReverseHybrid,
-    dfa: wrappers::ReverseDFA,
+    hybrid: Arc<wrappers::ReverseHybrid>,
+    dfa: Arc<wrappers::ReverseDFA>,
 }
 
 impl ReverseInner {
@@ -1625,20 +1625,20 @@ impl ReverseInner {
         };
         debug!("building reverse DFA for prefix before inner literal");
         let dfa = if !core.info.config().get_dfa() {
-            wrappers::ReverseDFA::none()
+            Arc::new(wrappers::ReverseDFA::none())
         } else {
-            wrappers::ReverseDFA::new(&core.info, &nfarev)
+            Arc::new(wrappers::ReverseDFA::new(&core.info, &nfarev))
         };
         let hybrid = if !core.info.config().get_hybrid() {
-            wrappers::ReverseHybrid::none()
+            Arc::new(wrappers::ReverseHybrid::none())
         } else if dfa.is_some() {
             debug!(
                 "skipping lazy DFA for reverse inner optimization \
 				 because we have a full DFA"
             );
-            wrappers::ReverseHybrid::none()
+            Arc::new(wrappers::ReverseHybrid::none())
         } else {
-            wrappers::ReverseHybrid::new(&core.info, &nfarev)
+            Arc::new(wrappers::ReverseHybrid::new(&core.info, &nfarev))
         };
         Ok(ReverseInner { core, preinner, nfarev, hybrid, dfa })
     }
