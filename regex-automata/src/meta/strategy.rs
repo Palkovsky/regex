@@ -455,7 +455,6 @@ struct Core {
 }
 
 impl Core {
-    #[inline(never)]
     fn new(
         info: RegexInfo,
         pre: Option<Prefilter>,
@@ -922,7 +921,6 @@ struct ReverseAnchored {
 }
 
 impl ReverseAnchored {
-    #[inline(never)]
     fn new(core: Arc<Core>) -> Result<ReverseAnchored, Arc<Core>> {
         if !core.info.is_always_anchored_end() {
             debug!(
@@ -1136,7 +1134,6 @@ struct ReverseSuffix {
 }
 
 impl ReverseSuffix {
-    #[inline(never)]
     fn new(
         core: Arc<Core>,
         hirs: &[&Hir],
@@ -1528,7 +1525,6 @@ struct ReverseInner {
 }
 
 impl ReverseInner {
-    #[inline(never)]
     fn new(core: Arc<Core>, hirs: &[&Hir]) -> Result<ReverseInner, Arc<Core>> {
         if !core.info.config().get_auto_prefilter() {
             debug!(

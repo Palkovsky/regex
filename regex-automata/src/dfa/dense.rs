@@ -11,6 +11,7 @@ This module also contains a [`dense::Builder`](Builder) and a
 use core::cmp;
 use core::{convert::TryFrom, fmt, iter, mem::size_of, slice};
 
+use alloc::boxed::Box;
 #[cfg(feature = "dfa-build")]
 use alloc::{
     collections::{BTreeMap, BTreeSet},

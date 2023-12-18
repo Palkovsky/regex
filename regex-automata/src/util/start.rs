@@ -7,6 +7,7 @@ use crate::util::{
     search::{Anchored, Input},
     wire::{self, DeserializeError, SerializeError},
 };
+use alloc::boxed::Box;
 
 /// The configuration used to determine a DFA's start state for a search.
 ///
@@ -206,7 +207,7 @@ impl Config {
 /// result of the epsilon closure that the NFA engines tend to need to do.)
 #[derive(Clone)]
 pub(crate) struct StartByteMap {
-    map: [Start; 256],
+    map: Box<[Start; 256]>,
 }
 
 impl StartByteMap {
@@ -214,7 +215,7 @@ impl StartByteMap {
     /// configurations. The map is determined, in part, by how look-around
     /// assertions are matched via the matcher given.
     pub(crate) fn new(lookm: &LookMatcher) -> StartByteMap {
-        let mut map = [Start::NonWordByte; 256];
+        let mut map = Box::new([Start::NonWordByte; 256]);
         map[usize::from(b'\n')] = Start::LineLF;
         map[usize::from(b'\r')] = Start::LineCR;
         map[usize::from(b'_')] = Start::WordByte;
@@ -266,7 +267,7 @@ impl StartByteMap {
         slice: &[u8],
     ) -> Result<(StartByteMap, usize), DeserializeError> {
         wire::check_slice_len(slice, 256, "start byte map")?;
-        let mut map = [Start::NonWordByte; 256];
+        let mut map = Box::new([Start::NonWordByte; 256]);
         for (i, &repr) in slice[..256].iter().enumerate() {
             map[i] = match Start::from_usize(usize::from(repr)) {
                 Some(start) => start,

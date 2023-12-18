@@ -44,6 +44,7 @@ use core::{
     mem::size_of,
 };
 
+use alloc::boxed::Box;
 #[cfg(feature = "dfa-build")]
 use alloc::{vec, vec::Vec};
 
