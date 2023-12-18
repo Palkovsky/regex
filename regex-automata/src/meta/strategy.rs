@@ -79,6 +79,7 @@ pub(super) fn new(
     info: &RegexInfo,
     hirs: &[&Hir],
 ) -> Result<Arc<dyn Strategy>, BuildError> {
+    /*
     // At this point, we're committed to a regex engine of some kind. So pull
     // out a prefilter if we can, which will feed to each of the constituent
     // regex engines.
@@ -150,7 +151,8 @@ pub(super) fn new(
         debug!("skipping literal extraction since prefilters were disabled");
         None
     };
-    let mut core = Arc::new(Core::new(info.clone(), pre.clone(), hirs)?);
+     */
+    //let mut core = Arc::new(Core::new(info.clone(), None, hirs)?);
     // Now that we have our core regex engines built, there are a few cases
     // where we can do a little bit better than just a normal "search forward
     // and maybe use a prefilter when in a start state." However, these cases
@@ -160,6 +162,7 @@ pub(super) fn new(
     // might give up or quit for reasons. If we had, e.g., a PikeVM that
     // supported reverse searching, then we could avoid building a full Core
     // engine for this case.
+    /*
     core = match ReverseAnchored::new(core) {
         Err(core) => core,
         Ok(ra) => {
@@ -182,7 +185,9 @@ pub(super) fn new(
         }
     };
     debug!("using core strategy");
-    Ok(core)
+     */
+    //Ok(core)
+    panic!()
 }
 
 #[derive(Clone, Debug)]
