@@ -177,6 +177,7 @@ impl Regex {
     /// // potentially by up to or more than an order of magnitude.
     /// assert!(Regex::new(r"(?-u:\w){1000}").is_ok());
     /// ```
+    #[inline(never)]
     pub fn new(re: &str) -> Result<Regex, Error> {
         let builder = Box::new(RegexBuilder::new(re));
         builder.build()

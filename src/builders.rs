@@ -67,8 +67,8 @@ impl Builder {
         b
     }
 
+    #[inline(never)]
     fn build_one_string(&self) -> Result<crate::Regex, Error> {
-        assert_eq!(1, self.pats.len());
         let metac = self
             .metac
             .clone()
@@ -85,7 +85,6 @@ impl Builder {
     }
 
     fn build_one_bytes(&self) -> Result<crate::bytes::Regex, Error> {
-        assert_eq!(1, self.pats.len());
         let metac = self
             .metac
             .clone()
@@ -229,6 +228,7 @@ pub(crate) mod string {
         ///
         /// If the pattern isn't a valid regex or if a configured size limit
         /// was exceeded, then an error is returned.
+        #[inline(never)]
         pub fn build(&self) -> Result<Regex, Error> {
             self.builder.build_one_string()
         }
