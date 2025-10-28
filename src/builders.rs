@@ -48,23 +48,17 @@ struct Builder {
     syntaxc: syntax::Config,
 }
 
-impl Default for Builder {
-    fn default() -> Builder {
-        let mut metac = meta::Config::new();
-        metac
-            .nfa_size_limit(Some(10 * (1 << 20)))
-            .hybrid_cache_capacity(2 * (1 << 20));
-        Builder { pats: vec![], metac, syntaxc: syntax::Config::default() }
-    }
-}
-
 impl Builder {
-    fn new<I, S>(patterns: I) -> Builder
+    fn new<I, S>(patterns: I) -> alloc::boxed::Box<Builder>
     where
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
-        let mut b = Builder::default();
+        let mut metac = meta::Config::new();
+        metac
+            .nfa_size_limit(Some(10 * (1 << 20)))
+            .hybrid_cache_capacity(2 * (1 << 20));
+        let mut b = Box::new(Builder { pats: vec![], metac, syntaxc: syntax::Config::default() });
         b.pats.extend(patterns.into_iter().map(|p| p.as_ref().to_string()));
         b
     }
@@ -204,7 +198,7 @@ pub(crate) mod string {
     /// the compiled regular expression.
     #[derive(Clone, Debug)]
     pub struct RegexBuilder {
-        builder: Builder,
+        builder: alloc::boxed::Box<Builder>,
     }
 
     impl RegexBuilder {
@@ -779,7 +773,7 @@ pub(crate) mod string {
     /// and a size limit on the compiled regular expression.
     #[derive(Clone, Debug)]
     pub struct RegexSetBuilder {
-        builder: Builder,
+        builder: alloc::boxed::Box<Builder>,
     }
 
     impl RegexSetBuilder {
@@ -1364,7 +1358,7 @@ pub(crate) mod bytes {
     /// the compiled regular expression.
     #[derive(Clone, Debug)]
     pub struct RegexBuilder {
-        builder: Builder,
+        builder: alloc::boxed::Box<Builder>,
     }
 
     impl RegexBuilder {
@@ -1958,7 +1952,7 @@ pub(crate) mod bytes {
     /// the compiled regular expression.
     #[derive(Clone, Debug)]
     pub struct RegexSetBuilder {
-        builder: Builder,
+        builder: alloc::boxed::Box<Builder>,
     }
 
     impl RegexSetBuilder {
