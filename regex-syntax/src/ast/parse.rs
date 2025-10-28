@@ -388,8 +388,8 @@ impl Parser {
 
 impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// Build an internal parser from a parser configuration and a pattern.
-    fn new(parser: P, pattern: &'s str) -> ParserI<'s, P> {
-        ParserI { parser, pattern }
+    fn new(parser: P, pattern: &'s str) -> Box<ParserI<'s, P>> {
+        Box::new(ParserI { parser, pattern })
     }
 
     /// Return a reference to the parser state.
@@ -1004,7 +1004,6 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// Parse the regular expression and return an abstract syntax tree with
     /// all of the comments found in the pattern.
     fn parse_with_comments(&self) -> Result<ast::WithComments> {
-        assert_eq!(self.offset(), 0, "parser can only be used once");
         self.parser().reset();
         let mut concat = ast::Concat { span: self.span(), asts: vec![] };
         loop {
@@ -1902,8 +1901,6 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// following the closing `]`.
     #[inline(never)]
     fn parse_set_class(&self) -> Result<ast::ClassBracketed> {
-        assert_eq!(self.char(), '[');
-
         let mut union =
             ast::ClassSetUnion { span: self.span(), items: vec![] };
         loop {
@@ -1913,50 +1910,136 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             match self.char() {
                 '[' => {
-                    // If we've already parsed the opening bracket, then
-                    // attempt to treat this as the beginning of an ASCII
-                    // class. If ASCII class parsing fails, then the parser
-                    // backs up to `[`.
-                    if !self.parser().stack_class.borrow().is_empty() {
-                        if let Some(cls) = self.maybe_parse_ascii_class() {
-                            union.push(ast::ClassSetItem::Ascii(cls));
-                            continue;
-                        }
-                    }
-                    union = self.push_class_open(union)?;
+                    union = self.parse_set_class_bracket(union)?;
                 }
-                ']' => match self.pop_class(union)? {
-                    Either::Left(nested_union) => {
-                        union = nested_union;
-                    }
-                    Either::Right(class) => return Ok(class),
-                },
+                ']' => {
+                    return self.parse_set_class_close_bracket(union);
+                }
                 '&' if self.peek() == Some('&') => {
-                    assert!(self.bump_if("&&"));
-                    union = self.push_class_op(
-                        ast::ClassSetBinaryOpKind::Intersection,
-                        union,
-                    );
+                    union = self.parse_set_class_intersection(union);
                 }
                 '-' if self.peek() == Some('-') => {
-                    assert!(self.bump_if("--"));
-                    union = self.push_class_op(
-                        ast::ClassSetBinaryOpKind::Difference,
-                        union,
-                    );
+                    union = self.parse_set_class_difference(union);
                 }
                 '~' if self.peek() == Some('~') => {
-                    assert!(self.bump_if("~~"));
-                    union = self.push_class_op(
-                        ast::ClassSetBinaryOpKind::SymmetricDifference,
-                        union,
-                    );
+                    union = self.parse_set_class_symmetric_difference(union);
                 }
                 _ => {
                     union.push(self.parse_set_class_range()?);
                 }
             }
         }
+    }
+
+    /// Handle the `[` character in a character class, which may be either
+    /// an ASCII class or a nested class.
+    #[inline(never)]
+    fn parse_set_class_bracket(
+        &self,
+        mut union: ast::ClassSetUnion,
+    ) -> Result<ast::ClassSetUnion> {
+        // If we've already parsed the opening bracket, then
+        // attempt to treat this as the beginning of an ASCII
+        // class. If ASCII class parsing fails, then the parser
+        // backs up to `[`.
+        if !self.parser().stack_class.borrow().is_empty() {
+            if let Some(cls) = self.maybe_parse_ascii_class() {
+                union.push(ast::ClassSetItem::Ascii(cls));
+                return Ok(union);
+            }
+        }
+        self.push_class_open(union)
+    }
+
+    /// Handle the `]` character in a character class, which closes the
+    /// current class or a nested class.
+    #[inline(never)]
+    fn parse_set_class_close_bracket(
+        &self,
+        union: ast::ClassSetUnion,
+    ) -> Result<ast::ClassBracketed> {
+        match self.pop_class(union)? {
+            Either::Left(nested_union) => {
+                // This is a nested class, so we need to continue parsing.
+                // We do this by recursively calling parse_set_class_loop.
+                self.parse_set_class_loop(nested_union)
+            }
+            Either::Right(class) => Ok(class),
+        }
+    }
+
+    /// Continue parsing a character class after handling a close bracket
+    /// that resulted in a nested union.
+    #[inline(never)]
+    fn parse_set_class_loop(
+        &self,
+        mut union: ast::ClassSetUnion,
+    ) -> Result<ast::ClassBracketed> {
+        loop {
+            self.bump_space();
+            if self.is_eof() {
+                return Err(self.unclosed_class_error());
+            }
+            match self.char() {
+                '[' => {
+                    union = self.parse_set_class_bracket(union)?;
+                }
+                ']' => {
+                    return self.parse_set_class_close_bracket(union);
+                }
+                '&' if self.peek() == Some('&') => {
+                    union = self.parse_set_class_intersection(union);
+                }
+                '-' if self.peek() == Some('-') => {
+                    union = self.parse_set_class_difference(union);
+                }
+                '~' if self.peek() == Some('~') => {
+                    union = self.parse_set_class_symmetric_difference(union);
+                }
+                _ => {
+                    union.push(self.parse_set_class_range()?);
+                }
+            }
+        }
+    }
+
+    /// Handle the `&&` intersection operator in a character class.
+    #[inline(never)]
+    fn parse_set_class_intersection(
+        &self,
+        union: ast::ClassSetUnion,
+    ) -> ast::ClassSetUnion {
+        assert!(self.bump_if("&&"));
+        self.push_class_op(
+            ast::ClassSetBinaryOpKind::Intersection,
+            union,
+        )
+    }
+
+    /// Handle the `--` difference operator in a character class.
+    #[inline(never)]
+    fn parse_set_class_difference(
+        &self,
+        union: ast::ClassSetUnion,
+    ) -> ast::ClassSetUnion {
+        assert!(self.bump_if("--"));
+        self.push_class_op(
+            ast::ClassSetBinaryOpKind::Difference,
+            union,
+        )
+    }
+
+    /// Handle the `~~` symmetric difference operator in a character class.
+    #[inline(never)]
+    fn parse_set_class_symmetric_difference(
+        &self,
+        union: ast::ClassSetUnion,
+    ) -> ast::ClassSetUnion {
+        assert!(self.bump_if("~~"));
+        self.push_class_op(
+            ast::ClassSetBinaryOpKind::SymmetricDifference,
+            union,
+        )
     }
 
     /// Parse a single primitive item in a character class set. The item to
