@@ -816,7 +816,6 @@ impl Compiler {
                     .parse(p.as_ref())
                     .map_err(BuildError::syntax)?,
             );
-            debug!("parsed: {:?}", p.as_ref());
         }
         self.build_many_from_hir(&hirs)
     }

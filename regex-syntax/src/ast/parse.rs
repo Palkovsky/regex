@@ -76,7 +76,7 @@ impl Primitive {
             Literal(lit) => Ok(ClassSetItem::Literal(lit)),
             Perl(cls) => Ok(ClassSetItem::Perl(cls)),
             Unicode(cls) => Ok(ClassSetItem::Unicode(cls)),
-            x => Err(p.error(*x.span(), ast::ErrorKind::ClassEscapeInvalid)),
+            x => Err(p.error(x.span().clone(), ast::ErrorKind::ClassEscapeInvalid)),
         }
     }
 
@@ -94,7 +94,7 @@ impl Primitive {
 
         match self {
             Literal(lit) => Ok(lit),
-            x => Err(p.error(*x.span(), ast::ErrorKind::ClassRangeLiteral)),
+            x => Err(p.error(x.span().clone(), ast::ErrorKind::ClassRangeLiteral)),
         }
     }
 }
@@ -147,7 +147,7 @@ impl ParserBuilder {
     /// Build a parser from this configuration with the given pattern.
     pub fn build(&self) -> Parser {
         Parser {
-            pos: Cell::new(Position { offset: 0, line: 1, column: 1 }),
+            pos: RefCell::new(Position::new(0, 1, 1)),
             capture_index: Cell::new(0),
             nest_limit: self.nest_limit,
             octal: self.octal,
@@ -248,7 +248,7 @@ impl ParserBuilder {
 #[derive(Clone, Debug)]
 pub struct Parser {
     /// The current position of the parser.
-    pos: Cell<Position>,
+    pos: RefCell<Position>,
     /// The current capture index.
     capture_index: Cell<u32>,
     /// The maximum number of open parens/brackets allowed. If the parser
@@ -380,7 +380,7 @@ impl Parser {
     fn reset(&self) {
         // These settings should be in line with the construction
         // in `ParserBuilder::build`.
-        self.pos.set(Position { offset: 0, line: 1, column: 1 });
+        *self.pos.borrow_mut() = Position::new(0, 1, 1);
         self.ignore_whitespace.set(self.initial_ignore_whitespace);
         self.comments.borrow_mut().clear();
         self.stack_group.borrow_mut().clear();
@@ -414,21 +414,21 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// The offset starts at `0` from the beginning of the regular expression
     /// pattern string.
     fn offset(&self) -> usize {
-        self.parser().pos.get().offset
+        self.parser().pos.borrow().0.offset
     }
 
     /// Return the current line number of the parser.
     ///
     /// The line number starts at `1`.
     fn line(&self) -> usize {
-        self.parser().pos.get().line
+        self.parser().pos.borrow().0.line
     }
 
     /// Return the current column of the parser.
     ///
     /// The column number starts at `1` and is reset whenever a `\n` is seen.
     fn column(&self) -> usize {
-        self.parser().pos.get().column
+        self.parser().pos.borrow().0.column
     }
 
     /// Return the next capturing index. Each subsequent call increments the
@@ -459,8 +459,8 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 Ok(())
             }
             Ok(i) => Err(self.error(
-                cap.span,
-                ast::ErrorKind::GroupNameDuplicate { original: names[i].span },
+                cap.span.clone(),
+                ast::ErrorKind::GroupNameDuplicate { original: names[i].span.clone() },
             )),
         }
     }
@@ -494,7 +494,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         if self.is_eof() {
             return false;
         }
-        let Position { mut offset, mut line, mut column } = self.pos();
+        let (mut offset, mut line, mut column) = self.pos().coords();
         if self.char() == '\n' {
             line = line.checked_add(1).unwrap();
             column = 1;
@@ -502,7 +502,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             column = column.checked_add(1).unwrap();
         }
         offset += self.char().len_utf8();
-        self.parser().pos.set(Position { offset, line, column });
+        *self.parser().pos.borrow_mut() = Position::new(offset, line, column);
         self.pattern()[self.offset()..].chars().next().is_some()
     }
 
@@ -629,7 +629,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// Return the current position of the parser, which includes the offset,
     /// line and column.
     fn pos(&self) -> Position {
-        self.parser().pos.get()
+        self.parser().pos.clone().into_inner()
     }
 
     /// Create a span at the current position of the parser. Both the start
@@ -640,14 +640,14 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
 
     /// Create a span that covers the current character.
     fn span_char(&self) -> Span {
-        let mut next = Position {
-            offset: self.offset().checked_add(self.char().len_utf8()).unwrap(),
-            line: self.line(),
-            column: self.column().checked_add(1).unwrap(),
-        };
+        let mut next = Position::new(
+            self.offset().checked_add(self.char().len_utf8()).unwrap(),
+            self.line(),
+            self.column().checked_add(1).unwrap(),
+        );
         if self.char() == '\n' {
-            next.line += 1;
-            next.column = 1;
+            next.0.line += 1;
+            next.0.column = 1;
         }
         Span::new(self.pos(), next)
     }
@@ -681,7 +681,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             return;
         }
         stack.push(Alternation(ast::Alternation {
-            span: Span::new(concat.span.start, self.pos()),
+            span: Span::new(concat.span.start.clone(), self.pos().clone()),
             asts: vec![concat.into_ast()],
         }));
     }
@@ -769,12 +769,12 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
         };
         self.parser().ignore_whitespace.set(ignore_whitespace);
-        group_concat.span.end = self.pos();
+        group_concat.span.end = self.pos().clone();
         self.bump();
-        group.span.end = self.pos();
+        group.span.end = self.pos().clone();
         match alt {
             Some(mut alt) => {
-                alt.span.end = group_concat.span.end;
+                alt.span.end = group_concat.span.end.clone();
                 alt.asts.push(group_concat.into_ast());
                 group.ast = Box::new(alt.into_ast());
             }
@@ -917,7 +917,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     fn unclosed_class_error(&self) -> ast::Error {
         for state in self.parser().stack_class.borrow().iter().rev() {
             if let ClassState::Open { ref set, .. } = *state {
-                return self.error(set.span, ast::ErrorKind::ClassUnclosed);
+                return self.error(set.span.clone(), ast::ErrorKind::ClassUnclosed);
             }
         }
         // We are guaranteed to have a non-empty stack with at least
@@ -961,7 +961,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             None => unreachable!(),
         };
-        let span = Span::new(lhs.span().start, rhs.span().end);
+        let span = Span::new(lhs.span().clone().start, rhs.span().clone().end);
         ast::ClassSet::BinaryOp(ast::ClassSetBinaryOp {
             span,
             kind,
@@ -1076,7 +1076,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             self.bump();
         }
         concat.asts.push(Ast::repetition(ast::Repetition {
-            span: ast.span().with_end(self.pos()),
+            span: ast.span().clone().with_end(self.pos()),
             op: ast::RepetitionOp {
                 span: Span::new(op_start, self.pos()),
                 kind,
@@ -1194,7 +1194,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             );
         }
         concat.asts.push(Ast::repetition(ast::Repetition {
-            span: ast.span().with_end(self.pos()),
+            span: ast.span().clone().with_end(self.pos()),
             op: ast::RepetitionOp {
                 span: op_span,
                 kind: ast::RepetitionKind::Range(range),
@@ -1231,7 +1231,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         self.bump_space();
         if self.is_lookaround_prefix() {
             return Err(self.error(
-                Span::new(open_span.start, self.span().end),
+                Span::new(open_span.start.clone(), self.span().end.clone()),
                 ast::ErrorKind::UnsupportedLookAround,
             ));
         }
@@ -1241,10 +1241,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             starts_with_p = false;
             self.bump_if("?<")
         } {
-            let capture_index = self.next_capture_index(open_span)?;
+            let capture_index = self.next_capture_index(open_span.clone())?;
             let name = self.parse_capture_name(capture_index)?;
             Ok(Either::Right(ast::Group {
-                span: open_span,
+                span: open_span.clone(),
                 kind: ast::GroupKind::CaptureName { starts_with_p, name },
                 ast: Box::new(Ast::empty(self.span())),
             }))
@@ -1273,15 +1273,15 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             } else {
                 assert_eq!(char_end, ':');
                 Ok(Either::Right(ast::Group {
-                    span: open_span,
+                    span: open_span.clone(),
                     kind: ast::GroupKind::NonCapturing(flags),
                     ast: Box::new(Ast::empty(self.span())),
                 }))
             }
         } else {
-            let capture_index = self.next_capture_index(open_span)?;
+            let capture_index = self.next_capture_index(open_span.clone())?;
             Ok(Either::Right(ast::Group {
-                span: open_span,
+                span: open_span.clone(),
                 kind: ast::GroupKind::CaptureIndex(capture_index),
                 ast: Box::new(Ast::empty(self.span())),
             }))
@@ -1325,10 +1325,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         }
         assert_eq!(self.char(), '>');
         self.bump();
-        let name = &self.pattern()[start.offset..end.offset];
+        let name = &self.pattern()[start.0.offset..end.0.offset];
         if name.is_empty() {
             return Err(self.error(
-                Span::new(start, start),
+                Span::new(start.clone(), start),
                 ast::ErrorKind::GroupNameEmpty,
             ));
         }
@@ -1370,7 +1370,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                     return Err(self.error(
                         self.span_char(),
                         ast::ErrorKind::FlagRepeatedNegation {
-                            original: flags.items[i].span,
+                            original: flags.items[i].span.clone(),
                         },
                     ));
                 }
@@ -1384,7 +1384,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                     return Err(self.error(
                         self.span_char(),
                         ast::ErrorKind::FlagDuplicate {
-                            original: flags.items[i].span,
+                            original: flags.items[i].span.clone(),
                         },
                     ));
                 }
@@ -1491,7 +1491,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             '0'..='7' => {
                 if !self.parser().octal {
                     return Err(self.error(
-                        Span::new(start, self.span_char().end),
+                        Span::new(start.clone(), self.span_char().end),
                         ast::ErrorKind::UnsupportedBackreference,
                     ));
                 }
@@ -1501,23 +1501,23 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             '8'..='9' if !self.parser().octal => {
                 return Err(self.error(
-                    Span::new(start, self.span_char().end),
+                    Span::new(start.clone(), self.span_char().end),
                     ast::ErrorKind::UnsupportedBackreference,
                 ));
             }
             'x' | 'u' | 'U' => {
                 let mut lit = self.parse_hex()?;
-                lit.span.start = start;
+                lit.span.start = start.clone();
                 return Ok(Primitive::Literal(lit));
             }
             'p' | 'P' => {
                 let mut cls = self.parse_unicode_class()?;
-                cls.span.start = start;
+                cls.span.start = start.clone();
                 return Ok(Primitive::Unicode(cls));
             }
             'd' | 's' | 'w' | 'D' | 'S' | 'W' => {
                 let mut cls = self.parse_perl_class();
-                cls.span.start = start;
+                cls.span.start = start.clone();
                 return Ok(Primitive::Perl(cls));
             }
             _ => {}
@@ -1525,24 +1525,24 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
 
         // Handle all of the one letter sequences inline.
         self.bump();
-        let span = Span::new(start, self.pos());
+        let span = Span::new(start.clone(), self.pos());
         if is_meta_character(c) {
             return Ok(Primitive::Literal(Box::new(ast::Literal {
-                span,
+                span: span.clone(),
                 kind: ast::LiteralKind::Meta,
                 c,
             })));
         }
         if is_escapeable_character(c) {
             return Ok(Primitive::Literal(Box::new(ast::Literal {
-                span,
+                span: span.clone(),
                 kind: ast::LiteralKind::Superfluous,
                 c,
             })));
         }
         let special = |kind, c| {
             Ok(Primitive::Literal(Box::new(ast::Literal {
-                span,
+                span: span.clone(),
                 kind: ast::LiteralKind::Special(kind),
                 c,
             })))
@@ -1555,16 +1555,16 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             'r' => special(ast::SpecialLiteralKind::CarriageReturn, '\r'),
             'v' => special(ast::SpecialLiteralKind::VerticalTab, '\x0B'),
             'A' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
-                span,
+                span: span.clone(),
                 kind: ast::AssertionKind::StartText,
             }))),
             'z' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
-                span,
+                span: span.clone(),
                 kind: ast::AssertionKind::EndText,
             }))),
             'b' => {
                 let mut wb = Box::new(ast::Assertion {
-                    span,
+                    span: span.clone(),
                     kind: ast::AssertionKind::WordBoundary,
                 });
                 // After a \b, we "try" to parse things like \b{start} for
@@ -1637,7 +1637,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         // boundary), then we bail and let the counted repetition parser deal
         // with this.
         if !is_valid_char(self.char()) {
-            self.parser().pos.set(start);
+            *self.parser().pos.borrow_mut() = start;
             return Ok(None);
         }
 
@@ -1687,10 +1687,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         while self.bump()
             && '0' <= self.char()
             && self.char() <= '7'
-            && self.pos().offset - start.offset <= 2
+            && self.pos().0.offset - start.0.offset <= 2
         {}
         let end = self.pos();
-        let octal = &self.pattern()[start.offset..end.offset];
+        let octal = &self.pattern()[start.0.offset..end.0.offset];
         // Parsing the octal should never fail since the above guarantees a
         // valid number.
         let codepoint =
@@ -1965,7 +1965,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         }
         let prim2 = self.parse_set_class_item()?;
         let range = ast::ClassSetRange {
-            span: Span::new(prim1.span().start, prim2.span().end),
+            span: Span::new(prim1.span().start.clone(), prim2.span().end.clone()),
             start: prim1.into_class_literal(self)?,
             end: prim2.into_class_literal(self)?,
         };
@@ -2053,7 +2053,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             })));
             if !self.bump_and_bump_space() {
                 return Err(self.error(
-                    Span::new(start, start),
+                    Span::new(start.clone(), start),
                     ast::ErrorKind::ClassUnclosed,
                 ));
             }
@@ -2077,7 +2077,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             span: Span::new(start, self.pos()),
             negated,
             kind: ast::ClassSet::union(ast::ClassSetUnion {
-                span: Span::new(union.span.start, union.span.start),
+                span: Span::new(union.span.start.clone(), union.span.start.clone()),
                 items: vec![],
             }),
         };
@@ -2118,35 +2118,35 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         let start = self.pos();
         let mut negated = false;
         if !self.bump() || self.char() != ':' {
-            self.parser().pos.set(start);
+            *self.parser().pos.borrow_mut() = start;
             return None;
         }
         if !self.bump() {
-            self.parser().pos.set(start);
+            *self.parser().pos.borrow_mut() = start;
             return None;
         }
         if self.char() == '^' {
             negated = true;
             if !self.bump() {
-                self.parser().pos.set(start);
+                *self.parser().pos.borrow_mut() = start;
                 return None;
             }
         }
         let name_start = self.offset();
         while self.char() != ':' && self.bump() {}
         if self.is_eof() {
-            self.parser().pos.set(start);
+            *self.parser().pos.borrow_mut() = start;
             return None;
         }
         let name = &self.pattern()[name_start..self.offset()];
         if !self.bump_if(":]") {
-            self.parser().pos.set(start);
+            *self.parser().pos.borrow_mut() = start;
             return None;
         }
         let kind = match ast::ClassAsciiKind::from_name(name) {
             Some(kind) => kind,
             None => {
-                self.parser().pos.set(start);
+                *self.parser().pos.borrow_mut() = start;
                 return None;
             }
         };

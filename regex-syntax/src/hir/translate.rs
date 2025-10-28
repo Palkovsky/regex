@@ -384,13 +384,13 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
             }
             Ast::Literal(ref x) => match self.ast_literal_to_scalar(x)? {
                 Either::Right(byte) => self.push_byte(byte),
-                Either::Left(ch) => match self.case_fold_char(x.span, ch)? {
+                Either::Left(ch) => match self.case_fold_char(x.span.clone(), ch)? {
                     None => self.push_char(ch),
                     Some(expr) => self.push(HirFrame::Expr(expr)),
                 },
             },
             Ast::Dot(ref span) => {
-                self.push(HirFrame::Expr(self.hir_dot(**span)?));
+                self.push(HirFrame::Expr(self.hir_dot(*span.clone())?));
             }
             Ast::Assertion(ref x) => {
                 self.push(HirFrame::Expr(self.hir_assertion(x)?));
@@ -833,7 +833,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             return Ok(Either::Left(char::try_from(byte).unwrap()));
         }
         if self.trans().utf8 {
-            return Err(self.error(lit.span, ErrorKind::InvalidUtf8));
+            return Err(self.error(lit.span.clone(), ErrorKind::InvalidUtf8));
         }
         Ok(Either::Right(byte))
     }
@@ -847,7 +847,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             let map = unicode::SimpleCaseFolder::new()
                 .map(|f| f.overlaps(c, c))
                 .map_err(|_| {
-                    self.error(span, ErrorKind::UnicodeCaseUnavailable)
+                    self.error(span.clone(), ErrorKind::UnicodeCaseUnavailable)
                 })?;
             if !map {
                 return Ok(None);
@@ -1029,7 +1029,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
         if !self.flags().unicode() {
             return Err(
-                self.error(ast_class.span, ErrorKind::UnicodeNotAllowed)
+                self.error(ast_class.span.clone(), ErrorKind::UnicodeNotAllowed)
             );
         }
         let query = match ast_class.kind {
@@ -1121,7 +1121,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         // UTF-8. That's only OK if the translator is configured to allow such
         // things.
         if self.trans().utf8 && !class.is_ascii() {
-            return Err(self.error(ast_class.span, ErrorKind::InvalidUtf8));
+            return Err(self.error(ast_class.span.clone(), ErrorKind::InvalidUtf8));
         }
         Ok(class)
     }
@@ -1206,7 +1206,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
                     // We can't feasibly support Unicode in
                     // byte oriented classes. Byte classes don't
                     // do Unicode case folding.
-                    Err(self.error(ast.span, ErrorKind::UnicodeNotAllowed))
+                    Err(self.error(ast.span.clone(), ErrorKind::UnicodeNotAllowed))
                 }
             }
         }

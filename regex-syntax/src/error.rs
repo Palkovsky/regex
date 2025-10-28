@@ -104,10 +104,10 @@ impl<'e, E: core::fmt::Display> core::fmt::Display for Formatter<'e, E> {
                 for span in &spans.multi_line {
                     notes.push(format!(
                         "on line {} (column {}) through line {} (column {})",
-                        span.start.line,
-                        span.start.column,
-                        span.end.line,
-                        span.end.column - 1
+                        span.start.0.line,
+                        span.start.0.column,
+                        span.end.0.line,
+                        span.end.0.column - 1
                     ));
                 }
                 writeln!(f, "{}", notes.join("\n"))?;
@@ -183,7 +183,7 @@ impl<'p> Spans<'p> {
         // This is grossly inefficient since we sort after each add, but right
         // now, we only ever add two spans at most.
         if span.is_one_line() {
-            let i = span.start.line - 1; // because lines are 1-indexed
+            let i = span.start.0.line - 1; // because lines are 1-indexed
             self.by_line[i].push(span);
             self.by_line[i].sort();
         } else {
@@ -228,11 +228,11 @@ impl<'p> Spans<'p> {
         }
         let mut pos = 0;
         for span in spans {
-            for _ in pos..(span.start.column - 1) {
+            for _ in pos..(span.start.0.column - 1) {
                 notes.push(' ');
                 pos += 1;
             }
-            let note_len = span.end.column.saturating_sub(span.start.column);
+            let note_len = span.end.0.column.saturating_sub(span.start.0.column);
             for _ in 0..core::cmp::max(1, note_len) {
                 notes.push('^');
                 pos += 1;
