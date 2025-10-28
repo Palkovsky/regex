@@ -44,6 +44,7 @@ use crate::util::{
     escape::DebugByte,
     wire::{self, DeserializeError, SerializeError},
 };
+use alloc::boxed::Box;
 
 /// Unit represents a single unit of haystack for DFA based regex engines.
 ///
@@ -211,15 +212,15 @@ impl core::fmt::Debug for Unit {
 ///
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Copy)]
-pub struct ByteClasses([u8; 256]);
+#[derive(Clone)]
+pub struct ByteClasses(Box<[u8; 256]>);
 
 impl ByteClasses {
     /// Creates a new set of equivalence classes where all bytes are mapped to
     /// the same class.
     #[inline]
     pub fn empty() -> ByteClasses {
-        ByteClasses([0; 256])
+        ByteClasses(Box::new([0; 256]))
     }
 
     /// Creates a new set of equivalence classes where each byte belongs to

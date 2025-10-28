@@ -1,6 +1,6 @@
 use core::{borrow::Borrow, cell::RefCell};
 
-use alloc::{sync::Arc, vec, vec::Vec};
+use alloc::{sync::Arc, vec, vec::Vec, boxed::Box};
 
 use regex_syntax::{
     hir::{self, Hir},
@@ -737,15 +737,15 @@ pub struct Compiler {
 
 impl Compiler {
     /// Create a new NFA builder with its default configuration.
-    pub fn new() -> Compiler {
-        Compiler {
+    pub fn new() -> Box<Compiler> {
+        Box::new(Compiler {
             parser: ParserBuilder::new(),
             config: Config::default(),
             builder: RefCell::new(Builder::new()),
             utf8_state: RefCell::new(Utf8State::new()),
             trie_state: RefCell::new(RangeTrie::new()),
             utf8_suffix: RefCell::new(Utf8SuffixMap::new(1000)),
-        }
+        })
     }
 
     /// Compile the given regular expression pattern into an NFA.

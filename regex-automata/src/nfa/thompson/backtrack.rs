@@ -10,7 +10,7 @@ is can be faster than the [`PikeVM`](thompson::pikevm::PikeVM) in many cases
 because it does less book-keeping.
 */
 
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::Vec, boxed::Box};
 
 use crate::{
     nfa::thompson::{self, BuildError, State, NFA},
@@ -256,7 +256,7 @@ impl Config {
 pub struct Builder {
     config: Config,
     #[cfg(feature = "syntax")]
-    thompson: thompson::Compiler,
+    thompson: Box<thompson::Compiler>,
 }
 
 impl Builder {

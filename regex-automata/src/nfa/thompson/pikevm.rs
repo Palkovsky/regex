@@ -8,7 +8,7 @@ resolving all spans of capturing groups that participate in a match.
 #[cfg(feature = "internal-instrument-pikevm")]
 use core::cell::RefCell;
 
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::Vec, boxed::Box};
 
 use crate::{
     nfa::thompson::{self, BuildError, State, NFA},
@@ -239,7 +239,7 @@ impl Config {
 pub struct Builder {
     config: Config,
     #[cfg(feature = "syntax")]
-    thompson: thompson::Compiler,
+    thompson: Box<thompson::Compiler>,
 }
 
 impl Builder {

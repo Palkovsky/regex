@@ -378,7 +378,7 @@ impl NFA {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn compiler() -> Compiler {
+    pub fn compiler() -> Box<Compiler> {
         Compiler::new()
     }
 

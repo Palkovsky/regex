@@ -74,8 +74,8 @@ pub struct Config {
 
 impl Config {
     /// Return a new default one-pass DFA configuration.
-    pub fn new() -> Config {
-        Config::default()
+    pub fn new() -> Box<Config> {
+        Box::new(Config::default())
     }
 
     /// Set the desired match semantics.
@@ -100,7 +100,7 @@ impl Config {
     /// The other main difference is that "all" match semantics don't support
     /// non-greedy matches. "All" match semantics always try to match as much
     /// as possible.
-    pub fn match_kind(mut self, kind: MatchKind) -> Config {
+    pub fn match_kind(mut self: Box<Config>, kind: MatchKind) -> Box<Config> {
         self.match_kind = Some(kind);
         self
     }
@@ -152,7 +152,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn starts_for_each_pattern(mut self, yes: bool) -> Config {
+    pub fn starts_for_each_pattern(mut self: Box<Config>, yes: bool) -> Box<Config> {
         self.starts_for_each_pattern = Some(yes);
         self
     }
@@ -186,7 +186,7 @@ impl Config {
     /// equivalence class. This is useful for debugging the actual generated
     /// transitions because it lets one see the transitions defined on actual
     /// bytes instead of the equivalence classes.
-    pub fn byte_classes(mut self, yes: bool) -> Config {
+    pub fn byte_classes(mut self: Box<Config>, yes: bool) -> Box<Config> {
         self.byte_classes = Some(yes);
         self
     }
@@ -233,7 +233,7 @@ impl Config {
     /// While one needs a little more than 3MB to represent `\w{20}`, it
     /// turns out that you only need a little more than 4KB to represent
     /// `(?-u:\w{20})`. So only use Unicode if you need it!
-    pub fn size_limit(mut self, limit: Option<usize>) -> Config {
+    pub fn size_limit(mut self: Box<Config>, limit: Option<usize>) -> Box<Config> {
         self.size_limit = Some(limit);
         self
     }
@@ -268,15 +268,15 @@ impl Config {
     /// always used. If an option in `o` is not set, then the corresponding
     /// option in `self` is used. If it's not set in `self` either, then it
     /// remains not set.
-    pub(crate) fn overwrite(&self, o: Config) -> Config {
-        Config {
+    pub(crate) fn overwrite(&self, o: Box<Config>) -> Box<Config> {
+        Box::new(Config {
             match_kind: o.match_kind.or(self.match_kind),
             starts_for_each_pattern: o
                 .starts_for_each_pattern
                 .or(self.starts_for_each_pattern),
             byte_classes: o.byte_classes.or(self.byte_classes),
             size_limit: o.size_limit.or(self.size_limit),
-        }
+        })
     }
 }
 
@@ -334,16 +334,16 @@ impl Config {
 /// ```
 #[derive(Clone, Debug)]
 pub struct Builder {
-    config: Config,
+    config: Box<Config>,
     #[cfg(feature = "syntax")]
-    thompson: thompson::Compiler,
+    thompson: Box<thompson::Compiler>,
 }
 
 impl Builder {
     /// Create a new one-pass DFA builder with the default configuration.
     pub fn new() -> Builder {
         Builder {
-            config: Config::default(),
+            config: Box::new(Config::default()),
             #[cfg(feature = "syntax")]
             thompson: thompson::Compiler::new(),
         }
@@ -415,7 +415,7 @@ impl Builder {
     }
 
     /// Apply the given one-pass DFA configuration options to this builder.
-    pub fn configure(&mut self, config: Config) -> &mut Builder {
+    pub fn configure(&mut self, config: Box<Config>) -> &mut Builder {
         self.config = self.config.overwrite(config);
         self
     }
@@ -509,7 +509,7 @@ struct InternalBuilder<'a> {
     /// The config passed to the builder.
     ///
     /// This is duplicated in dfa.config.
-    config: Config,
+    config: Box<Config>,
     /// The NFA we're building a one-pass DFA from.
     ///
     /// This is duplicated in dfa.nfa.
@@ -522,7 +522,7 @@ struct InternalBuilder<'a> {
 
 impl<'a> InternalBuilder<'a> {
     /// Create a new builder with an initial empty DFA.
-    fn new(config: Config, nfa: &'a NFA) -> InternalBuilder<'a> {
+    fn new(config: Box<Config>, nfa: &'a NFA) -> InternalBuilder<'a> {
         let classes = if !config.get_byte_classes() {
             // A one-pass DFA will always use the equivalence class map, but
             // enabling this option is useful for debugging. Namely, this will
@@ -1077,7 +1077,7 @@ impl<'a> InternalBuilder<'a> {
 #[derive(Clone)]
 pub struct DFA {
     /// The configuration provided by the caller.
-    config: Config,
+    config: Box<Config>,
     /// The NFA used to build this DFA.
     ///
     /// NOTE: We probably don't need to store the NFA here, but we use enough
@@ -1311,7 +1311,7 @@ impl DFA {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn config() -> Config {
+    pub fn config() -> Box<Config> {
         Config::new()
     }
 

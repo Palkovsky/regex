@@ -3994,7 +3994,7 @@ impl Config {
 pub struct Builder {
     config: Config,
     #[cfg(feature = "syntax")]
-    thompson: thompson::Compiler,
+    thompson: Box<thompson::Compiler>,
 }
 
 impl Builder {
