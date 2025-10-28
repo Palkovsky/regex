@@ -45,6 +45,8 @@ use crate::util::{
     wire::{self, DeserializeError, SerializeError},
 };
 use alloc::boxed::Box;
+use alloc::vec;
+
 
 /// Unit represents a single unit of haystack for DFA based regex engines.
 ///
@@ -218,9 +220,11 @@ pub struct ByteClasses(Box<[u8; 256]>);
 impl ByteClasses {
     /// Creates a new set of equivalence classes where all bytes are mapped to
     /// the same class.
-    #[inline]
+    #[inline(never)]
     pub fn empty() -> ByteClasses {
-        ByteClasses(Box::new([0; 256]))
+        let v = vec![0u8; 256];
+        let boxed: Box<[u8; 256]> = v.into_boxed_slice().try_into().unwrap();
+        ByteClasses(boxed)
     }
 
     /// Creates a new set of equivalence classes where each byte belongs to
