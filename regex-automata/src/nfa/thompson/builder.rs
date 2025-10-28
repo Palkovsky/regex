@@ -420,10 +420,11 @@ impl Builder {
             self.memory_usage(),
         );
 
-        let mut nfa = nfa::Inner::default();
-        nfa.set_utf8(self.utf8);
-        nfa.set_reverse(self.reverse);
-        nfa.set_look_matcher(self.look_matcher.clone());
+        let mut nfa = nfa::NFA::default();
+        let inner = &mut nfa.0;
+        inner.set_utf8(self.utf8);
+        inner.set_reverse(self.reverse);
+        inner.set_look_matcher(self.look_matcher.clone());
         // A set of compiler internal state IDs that correspond to states
         // that are exclusively epsilon transitions, i.e., goto instructions,
         // combined with the state that they point to. This is used to
@@ -435,8 +436,8 @@ impl Builder {
         let mut remap = vec![];
         remap.resize(self.states.len(), StateID::ZERO);
 
-        nfa.set_starts(start_anchored, start_unanchored, &self.start_pattern);
-        nfa.set_captures(&self.captures).map_err(BuildError::captures)?;
+        inner.set_starts(start_anchored, start_unanchored, &self.start_pattern);
+        inner.set_captures(&self.captures).map_err(BuildError::captures)?;
         // The idea here is to convert our intermediate states to their final
         // form. The only real complexity here is the process of converting
         // transitions, which are expressed in terms of state IDs. The new
@@ -451,35 +452,35 @@ impl Builder {
                     empties.push((sid, next));
                 }
                 State::ByteRange { trans } => {
-                    remap[sid] = nfa.add(nfa::State::ByteRange { trans });
+                    remap[sid] = inner.add(nfa::State::ByteRange { trans });
                 }
                 State::Sparse { ref transitions } => {
                     remap[sid] = match transitions.len() {
-                        0 => nfa.add(nfa::State::Fail),
-                        1 => nfa.add(nfa::State::ByteRange {
+                        0 => inner.add(nfa::State::Fail),
+                        1 => inner.add(nfa::State::ByteRange {
                             trans: transitions[0],
                         }),
                         _ => {
                             let transitions =
                                 transitions.to_vec().into_boxed_slice();
                             let sparse = SparseTransitions { transitions };
-                            nfa.add(nfa::State::Sparse(sparse))
+                            inner.add(nfa::State::Sparse(sparse))
                         }
                     }
                 }
                 State::Look { look, next } => {
-                    remap[sid] = nfa.add(nfa::State::Look { look, next });
+                    remap[sid] = inner.add(nfa::State::Look { look, next });
                 }
                 State::CaptureStart { pattern_id, group_index, next } => {
                     // We can't remove this empty state because of the side
                     // effect of capturing an offset for this capture slot.
-                    let slot = nfa
+                    let slot = inner
                         .group_info()
                         .slot(pattern_id, group_index.as_usize())
                         .expect("invalid capture index");
                     let slot =
                         SmallIndex::new(slot).expect("a small enough slot");
-                    remap[sid] = nfa.add(nfa::State::Capture {
+                    remap[sid] = inner.add(nfa::State::Capture {
                         next,
                         pattern_id,
                         group_index,
@@ -492,7 +493,7 @@ impl Builder {
                     // Also, this always succeeds because we check that all
                     // slot indices are valid for all capture indices when they
                     // are initially added.
-                    let slot = nfa
+                    let slot = inner
                         .group_info()
                         .slot(pattern_id, group_index.as_usize())
                         .expect("invalid capture index")
@@ -500,7 +501,7 @@ impl Builder {
                         .unwrap();
                     let slot =
                         SmallIndex::new(slot).expect("a small enough slot");
-                    remap[sid] = nfa.add(nfa::State::Capture {
+                    remap[sid] = inner.add(nfa::State::Capture {
                         next,
                         pattern_id,
                         group_index,
@@ -509,29 +510,29 @@ impl Builder {
                 }
                 State::Union { ref alternates } => {
                     if alternates.is_empty() {
-                        remap[sid] = nfa.add(nfa::State::Fail);
+                        remap[sid] = inner.add(nfa::State::Fail);
                     } else if alternates.len() == 1 {
                         empties.push((sid, alternates[0]));
                         remap[sid] = alternates[0];
                     } else if alternates.len() == 2 {
-                        remap[sid] = nfa.add(nfa::State::BinaryUnion {
+                        remap[sid] = inner.add(nfa::State::BinaryUnion {
                             alt1: alternates[0],
                             alt2: alternates[1],
                         });
                     } else {
                         let alternates =
                             alternates.to_vec().into_boxed_slice();
-                        remap[sid] = nfa.add(nfa::State::Union { alternates });
+                        remap[sid] = inner.add(nfa::State::Union { alternates });
                     }
                 }
                 State::UnionReverse { ref alternates } => {
                     if alternates.is_empty() {
-                        remap[sid] = nfa.add(nfa::State::Fail);
+                        remap[sid] = inner.add(nfa::State::Fail);
                     } else if alternates.len() == 1 {
                         empties.push((sid, alternates[0]));
                         remap[sid] = alternates[0];
                     } else if alternates.len() == 2 {
-                        remap[sid] = nfa.add(nfa::State::BinaryUnion {
+                        remap[sid] = inner.add(nfa::State::BinaryUnion {
                             alt1: alternates[1],
                             alt2: alternates[0],
                         });
@@ -539,14 +540,14 @@ impl Builder {
                         let mut alternates =
                             alternates.to_vec().into_boxed_slice();
                         alternates.reverse();
-                        remap[sid] = nfa.add(nfa::State::Union { alternates });
+                        remap[sid] = inner.add(nfa::State::Union { alternates });
                     }
                 }
                 State::Fail => {
-                    remap[sid] = nfa.add(nfa::State::Fail);
+                    remap[sid] = inner.add(nfa::State::Fail);
                 }
                 State::Match { pattern_id } => {
-                    remap[sid] = nfa.add(nfa::State::Match { pattern_id });
+                    remap[sid] = inner.add(nfa::State::Match { pattern_id });
                 }
             }
         }
@@ -588,8 +589,8 @@ impl Builder {
             }
         }
         // Finally remap all of the state IDs.
-        nfa.remap(&remap);
-        let final_nfa = nfa.into_nfa();
+        inner.remap(&remap);
+        let final_nfa = nfa.0.into_nfa();
         debug!(
             "NFA compilation via builder complete, \
              final NFA size: {} states, {} bytes on heap, \

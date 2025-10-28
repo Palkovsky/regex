@@ -186,7 +186,7 @@ use crate::{
 ///
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct NFA(
     // We make NFAs reference counted primarily for two reasons. First is that
     // the NFA type itself is quite large (at least 0.5KB), and so it makes
@@ -198,7 +198,7 @@ pub struct NFA(
     // for an unnecessarily annoying API. Instead, we just let each structure
     // share ownership of the NFA. Using a deep clone would not be smart, since
     // the NFA can use quite a bit of heap space.
-    Arc<Inner>,
+    pub Box<Inner>,
 );
 
 impl NFA {
@@ -1191,7 +1191,7 @@ impl fmt::Debug for NFA {
 /// NFA before finalizing it, but the high level construction process is
 /// controlled by the builder abstraction. (Which is complicated enough to
 /// get its own module.)
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct Inner {
     /// The state sequence. This sequence is guaranteed to be indexable by all
     /// starting state IDs, and it is also guaranteed to contain at most one
@@ -1340,7 +1340,7 @@ impl Inner {
         }
         self.states.shrink_to_fit();
         self.start_pattern.shrink_to_fit();
-        NFA(Arc::new(self))
+        NFA(Box::new(self))
     }
 
     /// Returns the capturing group info for this NFA.
