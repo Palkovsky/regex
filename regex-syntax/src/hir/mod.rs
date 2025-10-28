@@ -201,7 +201,7 @@ impl core::fmt::Display for ErrorKind {
 /// An `Hir`'s `fmt::Debug` implementation currently does not use constant
 /// stack space. The implementation will also suppress some details (such as
 /// the `Properties` inlined into every `Hir` value to make it less noisy).
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Hir {
     /// The underlying HIR kind.
     kind: Box<HirKind>,
@@ -689,7 +689,7 @@ impl Hir {
 /// then you _must_ use the smart constructors defined on `Hir`, like
 /// [`Hir::repetition`], to build new `Hir` values. The API intentionally does
 /// not expose any way of building an `Hir` directly from an `HirKind`.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum HirKind {
     /// The empty regular expression, which matches everything, including the
     /// empty string.
@@ -773,7 +773,7 @@ impl core::fmt::Display for Hir {
 /// Note that despite a literal being represented by a sequence of bytes, its
 /// `Debug` implementation will attempt to print it as a normal string. (That
 /// is, not a sequence of decimal numbers.)
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Literal(pub Box<[u8]>);
 
 impl core::fmt::Debug for Literal {
@@ -802,7 +802,7 @@ impl core::fmt::Debug for Literal {
 /// the author of the regular expression to disable Unicode mode, which in turn
 /// impacts the semantics of case insensitive matching. For example, `(?i)k`
 /// and `(?i-u)k` will not match the same set of strings.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Class {
     /// A set of characters represented by Unicode scalar values.
     Unicode(ClassUnicode),
@@ -1023,7 +1023,7 @@ impl core::fmt::Debug for Class {
 }
 
 /// A set of characters represented by Unicode scalar values.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassUnicode {
     set: IntervalSet<ClassUnicodeRange>,
 }
@@ -1213,7 +1213,7 @@ impl<'a> Iterator for ClassUnicodeIter<'a> {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
-#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct ClassUnicodeRange {
     start: char,
     end: char,
@@ -1322,7 +1322,7 @@ impl ClassUnicodeRange {
 /// A set of characters represented by arbitrary bytes.
 ///
 /// Each byte corresponds to one character.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassBytes {
     set: IntervalSet<ClassBytesRange>,
 }
@@ -1491,7 +1491,7 @@ impl<'a> Iterator for ClassBytesIter<'a> {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
-#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct ClassBytesRange {
     start: u8,
     end: u8,
@@ -1585,7 +1585,7 @@ impl core::fmt::Debug for ClassBytesRange {
 /// The high-level intermediate representation for a look-around assertion.
 ///
 /// An assertion match is always zero-length. Also called an "empty match."
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Look {
     /// Match the beginning of text. Specifically, this matches at the starting
     /// position of the input.
@@ -1771,7 +1771,7 @@ impl Look {
 /// Note that there is no explicit representation of a non-capturing group
 /// in a `Hir`. Instead, non-capturing grouping is handled automatically by
 /// the recursive structure of the `Hir` itself.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Capture {
     /// The capture index of the capture.
     pub index: u32,
@@ -1785,7 +1785,7 @@ pub struct Capture {
 ///
 /// A repetition operator permits the repetition of an arbitrary
 /// sub-expression.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Repetition {
     /// The minimum range of the repetition.
     ///
@@ -1936,7 +1936,7 @@ impl Drop for Hir {
 ///
 /// All methods on a `Properties` value take constant time and are meant to
 /// be cheap to call.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Properties(Box<PropertiesI>);
 
 /// The property definition. It is split out so that we can box it, and
@@ -1946,7 +1946,7 @@ pub struct Properties(Box<PropertiesI>);
 /// This does have the unfortunate consequence that creating any HIR value
 /// always leads to at least one alloc for properties, but this is generally
 /// true anyway (for pretty much all HirKinds except for look-arounds).
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 struct PropertiesI {
     minimum_len: Option<usize>,
     maximum_len: Option<usize>,
@@ -2637,7 +2637,7 @@ impl Properties {
 ///
 /// This is useful for efficiently tracking look-around assertions. For
 /// example, an [`Hir`] provides properties that return `LookSet`s.
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LookSet {
     /// The underlying representation this set is exposed to make it possible
     /// to store it somewhere efficiently. The representation is that

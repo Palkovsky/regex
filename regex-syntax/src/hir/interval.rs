@@ -30,7 +30,8 @@ use crate::unicode;
 //
 // Tests on this are relegated to the public API of HIR in src/hir.rs.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = "I: serde::Deserialize<'de>"))]
 pub struct IntervalSet<I> {
     /// A sorted set of non-overlapping ranges.
     ranges: Vec<I>,
@@ -394,7 +395,16 @@ impl<'a, I> Iterator for IntervalSetIter<'a, I> {
 }
 
 pub trait Interval:
-    Clone + Copy + Debug + Default + Eq + PartialEq + PartialOrd + Ord
+    Clone
+    + Copy
+    + Debug
+    + Default
+    + Eq
+    + PartialEq
+    + PartialOrd
+    + Ord
+    + serde::Serialize
+    + for<'de> serde::Deserialize<'de>
 {
     type Bound: Bound;
 
