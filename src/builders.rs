@@ -26,6 +26,7 @@ use alloc::{
     sync::Arc,
     vec,
     vec::Vec,
+    boxed::Box
 };
 
 use regex_automata::{

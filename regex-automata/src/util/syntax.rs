@@ -11,7 +11,7 @@ create small config objects like this one that can be passed around and
 composed.
 */
 
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::Vec, boxed::Box};
 
 use regex_syntax::{
     ast,
@@ -141,8 +141,8 @@ pub fn parse_many_with<P: AsRef<str>>(
 /// These options are defined as a group since they apply to every regex engine
 /// in this crate. Instead of re-defining them on every engine's builder, they
 /// are instead provided here as one cohesive unit.
-#[derive(Clone, Copy, Debug)]
-pub struct Config {
+#[derive(Clone, Debug)]
+pub struct ConfigI {
     case_insensitive: bool,
     multi_line: bool,
     dot_matches_new_line: bool,
@@ -156,11 +156,15 @@ pub struct Config {
     octal: bool,
 }
 
+/// A common set of configuration options that apply to the syntax of a regex.
+#[derive(Clone, Debug)]
+pub struct Config(Box<ConfigI>);
+
 impl Config {
     /// Return a new default syntax configuration.
     pub fn new() -> Config {
         // These defaults match the ones used in regex-syntax.
-        Config {
+        Config(Box::new(ConfigI {
             case_insensitive: false,
             multi_line: false,
             dot_matches_new_line: false,
@@ -172,7 +176,7 @@ impl Config {
             utf8: true,
             nest_limit: 250,
             octal: false,
-        }
+        }))
     }
 
     /// Enable or disable the case insensitive flag by default.
@@ -184,7 +188,7 @@ impl Config {
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `i` flag.
     pub fn case_insensitive(&mut self, yes: bool) -> &mut Config {
-        self.case_insensitive = yes;
+        self.0.case_insensitive = yes;
         self
     }
 
@@ -199,7 +203,7 @@ impl Config {
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `m` flag.
     pub fn multi_line(&mut self, yes: bool) -> &mut Config {
-        self.multi_line = yes;
+        self.0.multi_line = yes;
         self
     }
 
@@ -220,7 +224,7 @@ impl Config {
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `s` flag.
     pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut Config {
-        self.dot_matches_new_line = yes;
+        self.0.dot_matches_new_line = yes;
         self
     }
 
@@ -237,7 +241,7 @@ impl Config {
     /// `\r` and `\n` as line terminators. And in particular, neither will
     /// match between a `\r` and a `\n`.
     pub fn crlf(&mut self, yes: bool) -> &mut Config {
-        self.crlf = yes;
+        self.0.crlf = yes;
         self
     }
 
@@ -262,7 +266,7 @@ impl Config {
     /// `(?m:^)` and `(?m:$)`. That's usually controlled by additional
     /// configuration in the regex engine itself.
     pub fn line_terminator(&mut self, byte: u8) -> &mut Config {
-        self.line_terminator = byte;
+        self.0.line_terminator = byte;
         self
     }
 
@@ -274,7 +278,7 @@ impl Config {
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `U` flag.
     pub fn swap_greed(&mut self, yes: bool) -> &mut Config {
-        self.swap_greed = yes;
+        self.0.swap_greed = yes;
         self
     }
 
@@ -287,7 +291,7 @@ impl Config {
     /// By default, this is disabled. It may be selectively enabled in the
     /// regular expression by using the `x` flag regardless of this setting.
     pub fn ignore_whitespace(&mut self, yes: bool) -> &mut Config {
-        self.ignore_whitespace = yes;
+        self.0.ignore_whitespace = yes;
         self
     }
 
@@ -306,7 +310,7 @@ impl Config {
     /// classes like `\w` that are impacted by whether Unicode is enabled or
     /// not. If Unicode is not necessary, you are encouraged to disable it.
     pub fn unicode(&mut self, yes: bool) -> &mut Config {
-        self.unicode = yes;
+        self.0.unicode = yes;
         self
     }
 
@@ -325,7 +329,7 @@ impl Config {
     /// regex that will only ever match valid UTF-8 (otherwise, the builder
     /// will return an error).
     pub fn utf8(&mut self, yes: bool) -> &mut Config {
-        self.utf8 = yes;
+        self.0.utf8 = yes;
         self
     }
 
@@ -355,7 +359,7 @@ impl Config {
     /// manifests in an obvious way in the concrete syntax, therefore, it
     /// should not be used in a granular way.
     pub fn nest_limit(&mut self, limit: u32) -> &mut Config {
-        self.nest_limit = limit;
+        self.0.nest_limit = limit;
         self
     }
 
@@ -375,87 +379,87 @@ impl Config {
     ///
     /// Octal syntax is disabled by default.
     pub fn octal(&mut self, yes: bool) -> &mut Config {
-        self.octal = yes;
+        self.0.octal = yes;
         self
     }
 
     /// Returns whether "unicode" mode is enabled.
     pub fn get_unicode(&self) -> bool {
-        self.unicode
+        self.0.unicode
     }
 
     /// Returns whether "case insensitive" mode is enabled.
     pub fn get_case_insensitive(&self) -> bool {
-        self.case_insensitive
+        self.0.case_insensitive
     }
 
     /// Returns whether "multi line" mode is enabled.
     pub fn get_multi_line(&self) -> bool {
-        self.multi_line
+        self.0.multi_line
     }
 
     /// Returns whether "dot matches new line" mode is enabled.
     pub fn get_dot_matches_new_line(&self) -> bool {
-        self.dot_matches_new_line
+        self.0.dot_matches_new_line
     }
 
     /// Returns whether "CRLF" mode is enabled.
     pub fn get_crlf(&self) -> bool {
-        self.crlf
+        self.0.crlf
     }
 
     /// Returns the line terminator in this syntax configuration.
     pub fn get_line_terminator(&self) -> u8 {
-        self.line_terminator
+        self.0.line_terminator
     }
 
     /// Returns whether "swap greed" mode is enabled.
     pub fn get_swap_greed(&self) -> bool {
-        self.swap_greed
+        self.0.swap_greed
     }
 
     /// Returns whether "ignore whitespace" mode is enabled.
     pub fn get_ignore_whitespace(&self) -> bool {
-        self.ignore_whitespace
+        self.0.ignore_whitespace
     }
 
     /// Returns whether UTF-8 mode is enabled.
     pub fn get_utf8(&self) -> bool {
-        self.utf8
+        self.0.utf8
     }
 
     /// Returns the "nest limit" setting.
     pub fn get_nest_limit(&self) -> u32 {
-        self.nest_limit
+        self.0.nest_limit
     }
 
     /// Returns whether "octal" mode is enabled.
     pub fn get_octal(&self) -> bool {
-        self.octal
+        self.0.octal
     }
 
     /// Applies this configuration to the given parser.
     pub(crate) fn apply(&self, builder: &mut ParserBuilder) {
         builder
-            .unicode(self.unicode)
-            .case_insensitive(self.case_insensitive)
-            .multi_line(self.multi_line)
-            .dot_matches_new_line(self.dot_matches_new_line)
-            .crlf(self.crlf)
-            .line_terminator(self.line_terminator)
-            .swap_greed(self.swap_greed)
-            .ignore_whitespace(self.ignore_whitespace)
-            .utf8(self.utf8)
-            .nest_limit(self.nest_limit)
-            .octal(self.octal);
+            .unicode(self.0.unicode)
+            .case_insensitive(self.0.case_insensitive)
+            .multi_line(self.0.multi_line)
+            .dot_matches_new_line(self.0.dot_matches_new_line)
+            .crlf(self.0.crlf)
+            .line_terminator(self.0.line_terminator)
+            .swap_greed(self.0.swap_greed)
+            .ignore_whitespace(self.0.ignore_whitespace)
+            .utf8(self.0.utf8)
+            .nest_limit(self.0.nest_limit)
+            .octal(self.0.octal);
     }
 
     /// Applies this configuration to the given AST parser.
     pub(crate) fn apply_ast(&self, builder: &mut ast::parse::ParserBuilder) {
         builder
-            .ignore_whitespace(self.ignore_whitespace)
-            .nest_limit(self.nest_limit)
-            .octal(self.octal);
+            .ignore_whitespace(self.0.ignore_whitespace)
+            .nest_limit(self.0.nest_limit)
+            .octal(self.0.octal);
     }
 
     /// Applies this configuration to the given AST-to-HIR translator.
@@ -464,14 +468,14 @@ impl Config {
         builder: &mut hir::translate::TranslatorBuilder,
     ) {
         builder
-            .unicode(self.unicode)
-            .case_insensitive(self.case_insensitive)
-            .multi_line(self.multi_line)
-            .crlf(self.crlf)
-            .dot_matches_new_line(self.dot_matches_new_line)
-            .line_terminator(self.line_terminator)
-            .swap_greed(self.swap_greed)
-            .utf8(self.utf8);
+            .unicode(self.0.unicode)
+            .case_insensitive(self.0.case_insensitive)
+            .multi_line(self.0.multi_line)
+            .crlf(self.0.crlf)
+            .dot_matches_new_line(self.0.dot_matches_new_line)
+            .line_terminator(self.0.line_terminator)
+            .swap_greed(self.0.swap_greed)
+            .utf8(self.0.utf8);
     }
 }
 

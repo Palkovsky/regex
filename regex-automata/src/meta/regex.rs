@@ -2483,7 +2483,7 @@ pub struct Config(Box<ConfigI>);
 impl Config {
     /// Create a new configuration object for a `Regex`.
     pub fn new() -> Config {
-        Config::default()
+        Self(Box::new(ConfigI::default()))
     }
 
     /// Set the match semantics for a `Regex`.
