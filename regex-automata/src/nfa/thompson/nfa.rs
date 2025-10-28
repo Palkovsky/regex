@@ -1269,6 +1269,7 @@ pub(super) struct Inner {
 
 impl Inner {
     /// Runs any last finalization bits and turns this into a full NFA.
+    #[inline(never)]
     pub(super) fn into_nfa(mut self: Box<Self>) -> NFA {
         self.byte_classes = self.byte_class_set.byte_classes();
         // Do epsilon closure from the start state of every pattern in order

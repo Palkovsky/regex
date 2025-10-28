@@ -567,8 +567,7 @@ impl Builder {
             self.memory_usage(),
         );
 
-        let mut nfa = nfa::NFA::default();
-        let inner = &mut nfa.0;
+        let mut inner = Box::new(nfa::Inner::default());
         inner.set_utf8(self.utf8);
         inner.set_reverse(self.reverse);
         inner.set_look_matcher(self.look_matcher.clone());
@@ -596,31 +595,31 @@ impl Builder {
                     self.handle_empty_state(sid, next, &mut empties);
                 }
                 State::ByteRange { trans } => {
-                    self.handle_byte_range_state(trans, inner, &mut remap, sid);
+                    self.handle_byte_range_state(trans, &mut inner, &mut remap, sid);
                 }
                 State::Sparse { ref transitions } => {
-                    self.handle_sparse_state(transitions, inner, &mut remap, sid);
+                    self.handle_sparse_state(transitions, &mut inner, &mut remap, sid);
                 }
                 State::Look { look, next } => {
-                    self.handle_look_state(look, next, inner, &mut remap, sid);
+                    self.handle_look_state(look, next, &mut inner, &mut remap, sid);
                 }
                 State::CaptureStart { pattern_id, group_index, next } => {
-                    self.handle_capture_start_state(pattern_id, group_index, next, inner, &mut remap, sid);
+                    self.handle_capture_start_state(pattern_id, group_index, next, &mut inner, &mut remap, sid);
                 }
                 State::CaptureEnd { pattern_id, group_index, next } => {
-                    self.handle_capture_end_state(pattern_id, group_index, next, inner, &mut remap, sid);
+                    self.handle_capture_end_state(pattern_id, group_index, next, &mut inner, &mut remap, sid);
                 }
                 State::Union { ref alternates } => {
-                    self.handle_union_state(alternates, inner, &mut remap, sid, &mut empties);
+                    self.handle_union_state(alternates, &mut inner, &mut remap, sid, &mut empties);
                 }
                 State::UnionReverse { ref alternates } => {
-                    self.handle_union_reverse_state(alternates, inner, &mut remap, sid, &mut empties);
+                    self.handle_union_reverse_state(alternates, &mut inner, &mut remap, sid, &mut empties);
                 }
                 State::Fail => {
-                    self.handle_fail_state(inner, &mut remap, sid);
+                    self.handle_fail_state(&mut inner, &mut remap, sid);
                 }
                 State::Match { pattern_id } => {
-                    self.handle_match_state(pattern_id, inner, &mut remap, sid);
+                    self.handle_match_state(pattern_id, &mut inner, &mut remap, sid);
                 }
             }
         }
@@ -663,8 +662,7 @@ impl Builder {
         }
         // Finally remap all of the state IDs.
         inner.remap(&remap);
-        let final_nfa = nfa.0.into_nfa();
-        Ok(final_nfa)
+        Ok(inner.into_nfa())
     }
 
     /// Start the assembly of a pattern in this NFA.
