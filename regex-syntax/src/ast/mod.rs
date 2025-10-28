@@ -310,37 +310,6 @@ impl core::fmt::Display for ErrorKind {
     }
 }
 
-/// Span represents the position information of a single AST item.
-///
-/// All span positions are absolute byte offsets that can be used on the
-/// original regular expression that was parsed.
-#[derive(Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub struct Span {
-    /// The start byte offset.
-    pub start: Position,
-    /// The end byte offset.
-    pub end: Position,
-}
-
-impl core::fmt::Debug for Span {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Span({:?}, {:?})", self.start, self.end)
-    }
-}
-
-impl Ord for Span {
-    fn cmp(&self, other: &Span) -> Ordering {
-        (&self.start, &self.end).cmp(&(&other.start, &other.end))
-    }
-}
-
-impl PartialOrd for Span {
-    fn partial_cmp(&self, other: &Span) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 /// A single position in a regular expression.
 ///
 /// A position encodes one half of a span, and include the byte offset, line
@@ -379,6 +348,14 @@ impl PartialOrd for PositionI {
     }
 }
 
+/// A single position in a regular expression.
+///
+/// A position encodes one half of a span, and include the byte offset, line
+/// number and column number.
+#[derive(Clone, Eq, Ord, PartialOrd, Debug, PartialEq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct Position(pub Box<PositionI>);
+
 impl Position {
     /// Create a new position with the given information.
     ///
@@ -402,6 +379,36 @@ impl Position {
     }
 }
 
+/// Span represents the position information of a single AST item.
+///
+/// All span positions are absolute byte offsets that can be used on the
+/// original regular expression that was parsed.
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct SpanI {
+    /// The start byte offset.
+    pub start: Position,
+    /// The end byte offset.
+    pub end: Position,
+}
+
+impl core::fmt::Debug for SpanI {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "SpanI({:?}, {:?})", self.start, self.end)
+    }
+}
+
+impl Ord for SpanI {
+    fn cmp(&self, other: &SpanI) -> Ordering {
+        (&self.start, &self.end).cmp(&(&other.start, &other.end))
+    }
+}
+
+impl PartialOrd for SpanI {
+    fn partial_cmp(&self, other: &SpanI) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 /// A single position in a regular expression.
 ///
@@ -409,12 +416,17 @@ impl Position {
 /// number and column number.
 #[derive(Clone, Eq, Ord, PartialOrd, Debug, PartialEq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub struct Position(pub Box<PositionI>);
+pub struct Span(pub Box<SpanI>);
 
 impl Span {
     /// Create a new span with the given positions.
     pub fn new(start: Position, end: Position) -> Span {
-        Span { start, end }
+        Span(Box::new(SpanI { start, end }))
+    }
+
+    /// Return the coordinates of this span as (start, end).
+    pub fn coords(&self) -> (Position, Position) {
+        (self.0.start.clone(), self.0.end.clone())
     }
 
     /// Create a new span using the given position as the start and end.
@@ -425,24 +437,24 @@ impl Span {
     /// Create a new span by replacing the starting the position with the one
     /// given.
     pub fn with_start(self, pos: Position) -> Span {
-        Span { start: pos, ..self }
+        Span(Box::new(SpanI { start: pos, ..*self.0 }))
     }
 
     /// Create a new span by replacing the ending the position with the one
     /// given.
     pub fn with_end(self, pos: Position) -> Span {
-        Span { end: pos, ..self }
+        Span(Box::new(SpanI { end: pos, ..*self.0 }))
     }
 
     /// Returns true if and only if this span occurs on a single line.
     pub fn is_one_line(&self) -> bool {
-        self.start.0.line == self.end.0.line
+        self.0.start.0.line == self.0.end.0.line
     }
 
     /// Returns true if and only if this span is empty. That is, it points to
     /// a single position in the concrete syntax of a regular expression.
     pub fn is_empty(&self) -> bool {
-        self.start.0.offset == self.end.0.offset
+        self.0.start.0.offset == self.0.end.0.offset
     }
 }
 
@@ -1266,11 +1278,11 @@ impl ClassSetUnion {
     /// and you set the spans on each item correctly, then you should never
     /// need to adjust the span of the union directly.
     pub fn push(&mut self, item: ClassSetItem) {
-        let Span {start, end } = item.span();
+        let (start, end) = item.span().coords();
         if self.items.is_empty() {
-            self.span.start = start.clone();
+            self.span.0.start = start.clone();
         }
-        self.span.end = end.clone();
+        self.span.0.end = end.clone();
         self.items.push(item);
     }
 

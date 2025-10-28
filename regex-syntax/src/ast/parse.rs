@@ -664,7 +664,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     #[inline(never)]
     fn push_alternate(&self, mut concat: ast::Concat) -> Result<ast::Concat> {
         assert_eq!(self.char(), '|');
-        concat.span.end = self.pos();
+        concat.span.0.end = self.pos();
         self.push_or_add_alternation(concat);
         self.bump();
         Ok(ast::Concat { span: self.span(), asts: vec![] })
@@ -681,7 +681,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             return;
         }
         stack.push(Alternation(ast::Alternation {
-            span: Span::new(concat.span.start.clone(), self.pos().clone()),
+            span: Span::new(concat.span.0.start.clone(), self.pos()),
             asts: vec![concat.into_ast()],
         }));
     }
@@ -769,12 +769,12 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
         };
         self.parser().ignore_whitespace.set(ignore_whitespace);
-        group_concat.span.end = self.pos().clone();
+        group_concat.span.0.end = self.pos().clone();
         self.bump();
-        group.span.end = self.pos().clone();
+        group.span.0.end = self.pos().clone();
         match alt {
             Some(mut alt) => {
-                alt.span.end = group_concat.span.end.clone();
+                alt.span.0.end = group_concat.span.0.end.clone();
                 alt.asts.push(group_concat.into_ast());
                 group.ast = Box::new(alt.into_ast());
             }
@@ -794,12 +794,12 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// This assumes that the parser has advanced to the end.
     #[inline(never)]
     fn pop_group_end(&self, mut concat: ast::Concat) -> Result<Ast> {
-        concat.span.end = self.pos();
+        concat.span.0.end = self.pos();
         let mut stack = self.parser().stack_group.borrow_mut();
         let ast = match stack.pop() {
             None => Ok(concat.into_ast()),
             Some(GroupState::Alternation(mut alt)) => {
-                alt.span.end = self.pos();
+                alt.span.0.end = self.pos();
                 alt.asts.push(concat.into_ast());
                 Ok(Ast::alternation(alt))
             }
@@ -897,7 +897,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             Some(ClassState::Open { mut union, mut set }) => {
                 self.bump();
-                set.span.end = self.pos();
+                set.span.0.end = self.pos();
                 set.kind = prevset;
                 if stack.is_empty() {
                     Ok(Either::Right(set))
@@ -961,7 +961,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             None => unreachable!(),
         };
-        let span = Span::new(lhs.span().clone().start, rhs.span().clone().end);
+        let span = Span::new(lhs.span().clone().0.start, rhs.span().clone().0.end);
         ast::ClassSet::BinaryOp(ast::ClassSetBinaryOp {
             span,
             kind,
@@ -1231,7 +1231,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         self.bump_space();
         if self.is_lookaround_prefix() {
             return Err(self.error(
-                Span::new(open_span.start.clone(), self.span().end.clone()),
+                Span::new(open_span.0.start.clone(), self.span().0.end.clone()),
                 ast::ErrorKind::UnsupportedLookAround,
             ));
         }
@@ -1267,7 +1267,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                     ));
                 }
                 Ok(Either::Left(ast::SetFlags {
-                    span: Span { end: self.pos(), ..open_span },
+                    span: open_span.with_end(self.pos()),
                     flags,
                 }))
             } else {
@@ -1398,7 +1398,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         if let Some(span) = last_was_negation {
             return Err(self.error(span, ast::ErrorKind::FlagDanglingNegation));
         }
-        flags.span.end = self.pos();
+        flags.span.0.end = self.pos();
         Ok(flags)
     }
 
@@ -1491,33 +1491,33 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             '0'..='7' => {
                 if !self.parser().octal {
                     return Err(self.error(
-                        Span::new(start.clone(), self.span_char().end),
+                        Span::new(start.clone(), self.span_char().0.end),
                         ast::ErrorKind::UnsupportedBackreference,
                     ));
                 }
                 let mut lit = self.parse_octal();
-                lit.span.start = start;
+                lit.span.0.start = start;
                 return Ok(Primitive::Literal(lit));
             }
             '8'..='9' if !self.parser().octal => {
                 return Err(self.error(
-                    Span::new(start.clone(), self.span_char().end),
+                    Span::new(start.clone(), self.span_char().0.end),
                     ast::ErrorKind::UnsupportedBackreference,
                 ));
             }
             'x' | 'u' | 'U' => {
                 let mut lit = self.parse_hex()?;
-                lit.span.start = start.clone();
+                lit.span.0.start = start.clone();
                 return Ok(Primitive::Literal(lit));
             }
             'p' | 'P' => {
                 let mut cls = self.parse_unicode_class()?;
-                cls.span.start = start.clone();
+                cls.span.0.start = start.clone();
                 return Ok(Primitive::Unicode(cls));
             }
             'd' | 's' | 'w' | 'D' | 'S' | 'W' => {
                 let mut cls = self.parse_perl_class();
-                cls.span.start = start.clone();
+                cls.span.0.start = start.clone();
                 return Ok(Primitive::Perl(cls));
             }
             _ => {}
@@ -1574,7 +1574,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                         self.maybe_parse_special_word_boundary(start)?
                     {
                         wb.kind = kind;
-                        wb.span.end = self.pos();
+                        wb.span.0.end = self.pos();
                     }
                 }
                 Ok(Primitive::Assertion(wb))
@@ -1791,7 +1791,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         scratch.clear();
 
         let brace_pos = self.pos();
-        let start = self.span_char().end;
+        let start = self.span_char().0.end;
         while self.bump_and_bump_space() && self.char() != '}' {
             if !is_hex(self.char()) {
                 return Err(self.error(
@@ -1965,7 +1965,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         }
         let prim2 = self.parse_set_class_item()?;
         let range = ast::ClassSetRange {
-            span: Span::new(prim1.span().start.clone(), prim2.span().end.clone()),
+            span: Span::new(prim1.span().0.start.clone(), prim2.span().0.end.clone()),
             start: prim1.into_class_literal(self)?,
             end: prim2.into_class_literal(self)?,
         };
@@ -2077,7 +2077,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             span: Span::new(start, self.pos()),
             negated,
             kind: ast::ClassSet::union(ast::ClassSetUnion {
-                span: Span::new(union.span.start.clone(), union.span.start.clone()),
+                span: Span::new(union.span.0.start.clone(), union.span.0.start.clone()),
                 items: vec![],
             }),
         };
@@ -2177,7 +2177,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             );
         }
         let (start, kind) = if self.char() == '{' {
-            let start = self.span_char().end;
+            let start = self.span_char().0.end;
             while self.bump_and_bump_space() && self.char() != '}' {
                 scratch.push(self.char());
             }
