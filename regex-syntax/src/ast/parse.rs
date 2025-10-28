@@ -31,11 +31,11 @@ type Result<T> = core::result::Result<T, ast::Error>;
 /// within a set character class.
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Primitive {
-    Literal(ast::Literal),
-    Assertion(ast::Assertion),
-    Dot(Span),
-    Perl(ast::ClassPerl),
-    Unicode(ast::ClassUnicode),
+    Literal(Box<ast::Literal>),
+    Assertion(Box<ast::Assertion>),
+    Dot(Box<Span>),
+    Perl(Box<ast::ClassPerl>),
+    Unicode(Box<ast::ClassUnicode>),
 }
 
 impl Primitive {
@@ -53,11 +53,11 @@ impl Primitive {
     /// Convert this primitive into a proper AST.
     fn into_ast(self) -> Ast {
         match self {
-            Primitive::Literal(lit) => Ast::literal(lit),
-            Primitive::Assertion(assert) => Ast::assertion(assert),
-            Primitive::Dot(span) => Ast::dot(span),
-            Primitive::Perl(cls) => Ast::class_perl(cls),
-            Primitive::Unicode(cls) => Ast::class_unicode(cls),
+            Primitive::Literal(lit) => Ast::Literal(lit),
+            Primitive::Assertion(assert) => Ast::Assertion(assert),
+            Primitive::Dot(span) => Ast::Dot(span),
+            Primitive::Perl(cls) => Ast::ClassPerl(cls),
+            Primitive::Unicode(cls) => Ast::ClassUnicode(cls),
         }
     }
 
@@ -89,7 +89,7 @@ impl Primitive {
     fn into_class_literal<P: Borrow<Parser>>(
         self,
         p: &ParserI<'_, P>,
-    ) -> Result<ast::Literal> {
+    ) -> Result<Box<ast::Literal>> {
         use self::Primitive::*;
 
         match self {
@@ -1438,32 +1438,32 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         match self.char() {
             '\\' => self.parse_escape(),
             '.' => {
-                let ast = Primitive::Dot(self.span_char());
+                let ast = Primitive::Dot(Box::new(self.span_char()));
                 self.bump();
                 Ok(ast)
             }
             '^' => {
-                let ast = Primitive::Assertion(ast::Assertion {
+                let ast = Primitive::Assertion(Box::new(ast::Assertion {
                     span: self.span_char(),
                     kind: ast::AssertionKind::StartLine,
-                });
+                }));
                 self.bump();
                 Ok(ast)
             }
             '$' => {
-                let ast = Primitive::Assertion(ast::Assertion {
+                let ast = Primitive::Assertion(Box::new(ast::Assertion {
                     span: self.span_char(),
                     kind: ast::AssertionKind::EndLine,
-                });
+                }));
                 self.bump();
                 Ok(ast)
             }
             c => {
-                let ast = Primitive::Literal(ast::Literal {
+                let ast = Primitive::Literal(Box::new(ast::Literal {
                     span: self.span_char(),
                     kind: ast::LiteralKind::Verbatim,
                     c,
-                });
+                }));
                 self.bump();
                 Ok(ast)
             }
@@ -1527,25 +1527,25 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         self.bump();
         let span = Span::new(start, self.pos());
         if is_meta_character(c) {
-            return Ok(Primitive::Literal(ast::Literal {
+            return Ok(Primitive::Literal(Box::new(ast::Literal {
                 span,
                 kind: ast::LiteralKind::Meta,
                 c,
-            }));
+            })));
         }
         if is_escapeable_character(c) {
-            return Ok(Primitive::Literal(ast::Literal {
+            return Ok(Primitive::Literal(Box::new(ast::Literal {
                 span,
                 kind: ast::LiteralKind::Superfluous,
                 c,
-            }));
+            })));
         }
         let special = |kind, c| {
-            Ok(Primitive::Literal(ast::Literal {
+            Ok(Primitive::Literal(Box::new(ast::Literal {
                 span,
                 kind: ast::LiteralKind::Special(kind),
                 c,
-            }))
+            })))
         };
         match c {
             'a' => special(ast::SpecialLiteralKind::Bell, '\x07'),
@@ -1554,19 +1554,19 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             'n' => special(ast::SpecialLiteralKind::LineFeed, '\n'),
             'r' => special(ast::SpecialLiteralKind::CarriageReturn, '\r'),
             'v' => special(ast::SpecialLiteralKind::VerticalTab, '\x0B'),
-            'A' => Ok(Primitive::Assertion(ast::Assertion {
+            'A' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
                 span,
                 kind: ast::AssertionKind::StartText,
-            })),
-            'z' => Ok(Primitive::Assertion(ast::Assertion {
+            }))),
+            'z' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
                 span,
                 kind: ast::AssertionKind::EndText,
-            })),
+            }))),
             'b' => {
-                let mut wb = ast::Assertion {
+                let mut wb = Box::new(ast::Assertion {
                     span,
                     kind: ast::AssertionKind::WordBoundary,
-                };
+                });
                 // After a \b, we "try" to parse things like \b{start} for
                 // special word boundary assertions.
                 if !self.is_eof() && self.char() == '{' {
@@ -1579,18 +1579,18 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 }
                 Ok(Primitive::Assertion(wb))
             }
-            'B' => Ok(Primitive::Assertion(ast::Assertion {
+            'B' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
                 span,
                 kind: ast::AssertionKind::NotWordBoundary,
-            })),
-            '<' => Ok(Primitive::Assertion(ast::Assertion {
+            }))),
+            '<' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
                 span,
                 kind: ast::AssertionKind::WordBoundaryStartAngle,
-            })),
-            '>' => Ok(Primitive::Assertion(ast::Assertion {
+            }))),
+            '>' => Ok(Primitive::Assertion(Box::new(ast::Assertion {
                 span,
                 kind: ast::AssertionKind::WordBoundaryEndAngle,
-            })),
+            }))),
             _ => Err(self.error(span, ast::ErrorKind::EscapeUnrecognized)),
         }
     }
@@ -1679,7 +1679,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     ///
     /// Assuming the preconditions are met, this routine can never fail.
     #[inline(never)]
-    fn parse_octal(&self) -> ast::Literal {
+    fn parse_octal(&self) -> Box<ast::Literal> {
         assert!(self.parser().octal);
         assert!('0' <= self.char() && self.char() <= '7');
         let start = self.pos();
@@ -1698,11 +1698,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         // The max value for 3 digit octal is 0777 = 511 and [0, 511] has no
         // invalid Unicode scalar values.
         let c = char::from_u32(codepoint).expect("Unicode scalar value");
-        ast::Literal {
+        Box::new(ast::Literal {
             span: Span::new(start, end),
             kind: ast::LiteralKind::Octal,
             c,
-        }
+        })
     }
 
     /// Parse a hex representation of a Unicode codepoint. This handles both
@@ -1710,7 +1710,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// be positioned at the `x`, `u` or `U` prefix. The parser is advanced to
     /// the first character immediately following the hexadecimal literal.
     #[inline(never)]
-    fn parse_hex(&self) -> Result<ast::Literal> {
+    fn parse_hex(&self) -> Result<Box<ast::Literal>> {
         assert!(
             self.char() == 'x' || self.char() == 'u' || self.char() == 'U'
         );
@@ -1743,7 +1743,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     fn parse_hex_digits(
         &self,
         kind: ast::HexLiteralKind,
-    ) -> Result<ast::Literal> {
+    ) -> Result<Box<ast::Literal>> {
         let mut scratch = self.parser().scratch.borrow_mut();
         scratch.clear();
 
@@ -1771,11 +1771,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 Span::new(start, end),
                 ast::ErrorKind::EscapeHexInvalid,
             )),
-            Some(c) => Ok(ast::Literal {
+            Some(c) => Ok(Box::new(ast::Literal {
                 span: Span::new(start, end),
                 kind: ast::LiteralKind::HexFixed(kind),
                 c,
-            }),
+            })),
         }
     }
 
@@ -1786,7 +1786,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     fn parse_hex_brace(
         &self,
         kind: ast::HexLiteralKind,
-    ) -> Result<ast::Literal> {
+    ) -> Result<Box<ast::Literal>> {
         let mut scratch = self.parser().scratch.borrow_mut();
         scratch.clear();
 
@@ -1823,11 +1823,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 Span::new(start, end),
                 ast::ErrorKind::EscapeHexInvalid,
             )),
-            Some(c) => Ok(ast::Literal {
+            Some(c) => Ok(Box::new(ast::Literal {
                 span: Span::new(start, self.pos()),
                 kind: ast::LiteralKind::HexBrace(kind),
                 c,
-            }),
+            })),
         }
     }
 
@@ -1992,11 +1992,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         if self.char() == '\\' {
             self.parse_escape()
         } else {
-            let x = Primitive::Literal(ast::Literal {
+            let x = Primitive::Literal(Box::new(ast::Literal {
                 span: self.span_char(),
                 kind: ast::LiteralKind::Verbatim,
                 c: self.char(),
-            });
+            }));
             self.bump();
             Ok(x)
         }
@@ -2046,11 +2046,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         let mut union =
             ast::ClassSetUnion { span: self.span(), items: vec![] };
         while self.char() == '-' {
-            union.push(ast::ClassSetItem::Literal(ast::Literal {
+            union.push(ast::ClassSetItem::Literal(Box::new(ast::Literal {
                 span: self.span_char(),
                 kind: ast::LiteralKind::Verbatim,
                 c: '-',
-            }));
+            })));
             if !self.bump_and_bump_space() {
                 return Err(self.error(
                     Span::new(start, start),
@@ -2061,11 +2061,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         // If `]` is the *first* char in a set, then interpret it as a literal
         // `]`. That is, an empty class is impossible to write.
         if union.items.is_empty() && self.char() == ']' {
-            union.push(ast::ClassSetItem::Literal(ast::Literal {
+            union.push(ast::ClassSetItem::Literal(Box::new(ast::Literal {
                 span: self.span_char(),
                 kind: ast::LiteralKind::Verbatim,
                 c: ']',
-            }));
+            })));
             if !self.bump_and_bump_space() {
                 return Err(self.error(
                     Span::new(start, self.pos()),
@@ -2093,7 +2093,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// advanced to the first byte following the closing `]` and the
     /// corresponding ASCII class is returned.
     #[inline(never)]
-    fn maybe_parse_ascii_class(&self) -> Option<ast::ClassAscii> {
+    fn maybe_parse_ascii_class(&self) -> Option<Box<ast::ClassAscii>> {
         // ASCII character classes are interesting from a parsing perspective
         // because parsing cannot fail with any interesting error. For example,
         // in order to use an ASCII character class, it must be enclosed in
@@ -2150,11 +2150,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 return None;
             }
         };
-        Some(ast::ClassAscii {
+        Some(Box::new(ast::ClassAscii {
             span: Span::new(start, self.pos()),
             kind,
             negated,
-        })
+        }))
     }
 
     /// Parse a Unicode class in either the single character notation, `\pN`
@@ -2164,7 +2164,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     ///
     /// Note that this does not check whether the class name is valid or not.
     #[inline(never)]
-    fn parse_unicode_class(&self) -> Result<ast::ClassUnicode> {
+    fn parse_unicode_class(&self) -> Result<Box<ast::ClassUnicode>> {
         assert!(self.char() == 'p' || self.char() == 'P');
 
         let mut scratch = self.parser().scratch.borrow_mut();
@@ -2232,18 +2232,18 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             let kind = ast::ClassUnicodeKind::OneLetter(c);
             (start, kind)
         };
-        Ok(ast::ClassUnicode {
+        Ok(Box::new(ast::ClassUnicode {
             span: Span::new(start, self.pos()),
             negated,
             kind,
-        })
+        }))
     }
 
     /// Parse a Perl character class, e.g., `\d` or `\W`. This assumes the
     /// parser is currently at a valid character class name and will be
     /// advanced to the character immediately following the class.
     #[inline(never)]
-    fn parse_perl_class(&self) -> ast::ClassPerl {
+    fn parse_perl_class(&self) -> Box<ast::ClassPerl> {
         let c = self.char();
         let span = self.span_char();
         self.bump();
@@ -2256,7 +2256,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             'W' => (true, ast::ClassPerlKind::Word),
             c => panic!("expected valid Perl class but got '{c}'"),
         };
-        ast::ClassPerl { span, kind, negated }
+        Box::new(ast::ClassPerl { span, kind, negated })
     }
 }
 

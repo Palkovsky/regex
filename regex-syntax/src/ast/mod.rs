@@ -1170,15 +1170,15 @@ pub enum ClassSetItem {
     /// For example, `[&&]` is the intersection of two empty classes.
     Empty(Span),
     /// A single literal.
-    Literal(Literal),
+    Literal(Box<Literal>),
     /// A range between two literals.
     Range(ClassSetRange),
     /// An ASCII character class, e.g., `[:alnum:]` or `[:punct:]`.
-    Ascii(ClassAscii),
+    Ascii(Box<ClassAscii>),
     /// A Unicode character class, e.g., `\pL` or `\p{Greek}`.
-    Unicode(ClassUnicode),
+    Unicode(Box<ClassUnicode>),
     /// A perl character class, e.g., `\d` or `\W`.
-    Perl(ClassPerl),
+    Perl(Box<ClassPerl>),
     /// A bracketed character class set, which may contain zero or more
     /// character ranges and/or zero or more nested classes. e.g.,
     /// `[a-zA-Z\pL]`.
@@ -1210,9 +1210,9 @@ pub struct ClassSetRange {
     /// The span of this range.
     pub span: Span,
     /// The start of this range.
-    pub start: Literal,
+    pub start: Box<Literal>,
     /// The end of this range.
-    pub end: Literal,
+    pub end: Box<Literal>,
 }
 
 impl ClassSetRange {
