@@ -26,7 +26,7 @@ use alloc::{
     sync::Arc,
     vec,
     vec::Vec,
-    boxed::Box
+    boxed::Box,
 };
 
 use regex_automata::{
@@ -186,6 +186,8 @@ impl Builder {
 }
 
 pub(crate) mod string {
+    use alloc::{string::{String, ToString}, vec::Vec};
+    use regex_automata::{meta, nfa::thompson::WhichCaptures, MatchKind};
     use crate::{error::Error, Regex, RegexSet};
 
     use super::Builder;
@@ -219,6 +221,91 @@ pub(crate) mod string {
         /// was exceeded, then an error is returned.
         pub fn build(&self) -> Result<Regex, Error> {
             self.builder.build_one_string()
+        }
+
+        /// Returns a JSON-encoded representation of the parsed HIR (High-level
+        /// Intermediate Representation) for the pattern.
+        ///
+        /// Instead of building an evaluable regex, this method returns the
+        /// parsed pattern as a JSON string. This can be useful for debugging,
+        /// analysis, or serialization of regex patterns.
+        ///
+        /// If the pattern isn't valid, then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::RegexBuilder;
+        ///
+        /// let json = RegexBuilder::new(r"\d{2,4}")
+        ///     .build_hir_json()
+        ///     .unwrap();
+        /// println!("HIR: {}", json);
+        /// ```
+        pub fn build_hir_json(&self) -> Result<String, Error> {
+            let mut syntaxc = self.builder.syntaxc.clone();
+            syntaxc.utf8(true);
+            meta::Builder::new()
+                .syntax(&syntaxc)
+                .build_many_hir_json(&[self.builder.pats[0].as_str()])
+                .map_err(Error::from_meta_build_error)
+        }
+
+        /// Compiles a regex from a JSON-encoded HIR (High-level Intermediate
+        /// Representation).
+        ///
+        /// This is the complement of [`RegexBuilder::build_hir_json`]. Instead
+        /// of parsing a pattern string, this method deserializes a previously
+        /// exported HIR from JSON and builds a `Regex` directly from it.
+        ///
+        /// This can be useful for scenarios where you want to:
+        /// - Serialize and cache compiled regex representations
+        /// - Analyze or transform HIR before compilation
+        /// - Share regex representations across different systems
+        ///
+        /// If the JSON is invalid or doesn't represent a valid HIR, then an
+        /// error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::RegexBuilder;
+        ///
+        /// // First, export a pattern as JSON
+        /// let json = RegexBuilder::new(r"\d{2,4}")
+        ///     .build_hir_json()
+        ///     .unwrap();
+        ///
+        /// // Later, rebuild the regex from the JSON
+        /// let re = RegexBuilder::new("")
+        ///     .build_from_hir_json(&json)
+        ///     .unwrap();
+        ///
+        /// assert!(re.is_match("123"));
+        /// assert!(!re.is_match("a"));
+        /// ```
+        pub fn build_from_hir_json(&self, json: &str) -> Result<Regex, Error> {
+            // build_hir_json returns an array, so we need to parse it as such
+            // and extract the first (and only) element
+            let hirs: Vec<regex_syntax::hir::Hir> = serde_json::from_str(json)
+                .map_err(|e| Error::Syntax(alloc::format!("failed to parse HIR JSON: {}", e)))?;
+            
+            if hirs.is_empty() {
+                return Err(Error::Syntax("HIR JSON array is empty".to_string()));
+            }
+            if hirs.len() > 1 {
+                return Err(Error::Syntax("HIR JSON array contains more than one pattern".to_string()));
+            }
+            
+            let hir = &hirs[0];
+            let mut metac = self.builder.metac.clone();
+            metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(true);
+            
+            meta::Builder::new()
+                .configure(&metac)
+                .build_from_hir(hir)
+                .map(|meta| crate::Regex { meta, pattern: String::new() })
+                .map_err(Error::from_meta_build_error)
         }
 
         /// This configures Unicode mode for the entire pattern.
@@ -800,6 +887,89 @@ pub(crate) mod string {
             self.builder.build_many_string()
         }
 
+        /// Returns a JSON-encoded representation of the parsed HIR (High-level
+        /// Intermediate Representation) for all patterns.
+        ///
+        /// Instead of building an evaluable regex set, this method returns the
+        /// parsed patterns as a JSON string. This can be useful for debugging,
+        /// analysis, or serialization of regex patterns.
+        ///
+        /// If any pattern isn't valid, then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::RegexSetBuilder;
+        ///
+        /// let json = RegexSetBuilder::new([r"\d+", r"[a-z]+", r"\w+"])
+        ///     .build_hir_json()
+        ///     .unwrap();
+        /// println!("HIR: {}", json);
+        /// ```
+        pub fn build_hir_json(&self) -> Result<String, Error> {
+            let mut syntaxc = self.builder.syntaxc.clone();
+            syntaxc.utf8(true);
+            let pats: Vec<&str> = self.builder.pats.iter().map(|s| s.as_str()).collect();
+            meta::Builder::new()
+                .syntax(&syntaxc)
+                .build_many_hir_json(&pats)
+                .map_err(Error::from_meta_build_error)
+        }
+
+        /// Compiles a regex set from a JSON-encoded HIR (High-level
+        /// Intermediate Representation).
+        ///
+        /// This is the complement of [`RegexSetBuilder::build_hir_json`].
+        /// Instead of parsing pattern strings, this method deserializes a
+        /// previously exported HIR from JSON and builds a `RegexSet` directly
+        /// from it.
+        ///
+        /// The JSON should contain an array of HIR objects, one for each
+        /// pattern in the set.
+        ///
+        /// This can be useful for scenarios where you want to:
+        /// - Serialize and cache compiled regex set representations
+        /// - Analyze or transform HIR before compilation
+        /// - Share regex representations across different systems
+        ///
+        /// If the JSON is invalid or doesn't represent valid HIR expressions,
+        /// then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::RegexSetBuilder;
+        ///
+        /// // First, export patterns as JSON
+        /// let json = RegexSetBuilder::new([r"\d+", r"[a-z]+"])
+        ///     .build_hir_json()
+        ///     .unwrap();
+        ///
+        /// // Later, rebuild the regex set from the JSON
+        /// let re = RegexSetBuilder::new([""; 0])
+        ///     .build_from_hir_json(&json)
+        ///     .unwrap();
+        ///
+        /// assert!(re.is_match("123"));
+        /// assert!(re.is_match("abc"));
+        /// ```
+        pub fn build_from_hir_json(&self, json: &str) -> Result<RegexSet, Error> {
+            let hirs: Vec<regex_syntax::hir::Hir> = serde_json::from_str(json)
+                .map_err(|e| Error::Syntax(alloc::format!("failed to parse HIR JSON: {}", e)))?;
+            
+            let mut metac = self.builder.metac.clone();
+            metac
+                .match_kind(MatchKind::All)
+                .utf8_empty(true)
+                .which_captures(WhichCaptures::None);
+            
+            meta::Builder::new()
+                .configure(&metac)
+                .build_many_from_hir(&hirs)
+                .map(|meta| crate::RegexSet { meta, patterns: alloc::vec![] })
+                .map_err(Error::from_meta_build_error)
+        }
+
         /// This configures Unicode mode for the all of the patterns.
         ///
         /// Enabling Unicode mode does a number of things:
@@ -1343,6 +1513,8 @@ pub(crate) mod string {
 }
 
 pub(crate) mod bytes {
+    use alloc::{string::{String, ToString}, vec::Vec};
+    use regex_automata::{meta, nfa::thompson::WhichCaptures, MatchKind};
     use crate::{
         bytes::{Regex, RegexSet},
         error::Error,
@@ -1379,6 +1551,93 @@ pub(crate) mod bytes {
         /// was exceeded, then an error is returned.
         pub fn build(&self) -> Result<Regex, Error> {
             self.builder.build_one_bytes()
+        }
+
+        /// Returns a JSON-encoded representation of the parsed HIR (High-level
+        /// Intermediate Representation) for the pattern.
+        ///
+        /// Instead of building an evaluable regex, this method returns the
+        /// parsed pattern as a JSON string. This can be useful for debugging,
+        /// analysis, or serialization of regex patterns.
+        ///
+        /// If the pattern isn't valid, then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::bytes::RegexBuilder;
+        ///
+        /// let json = RegexBuilder::new(r"\d{2,4}")
+        ///     .build_hir_json()
+        ///     .unwrap();
+        /// println!("HIR: {}", json);
+        /// ```
+        pub fn build_hir_json(&self) -> Result<String, Error> {
+            let mut syntaxc = self.builder.syntaxc.clone();
+            syntaxc.utf8(false);
+            meta::Builder::new()
+                .syntax(&syntaxc)
+                .build_many_hir_json(&[self.builder.pats[0].as_str()])
+                .map_err(Error::from_meta_build_error)
+        }
+
+        /// Compiles a regex from a JSON-encoded HIR (High-level Intermediate
+        /// Representation).
+        ///
+        /// This is the complement of
+        /// [`bytes::RegexBuilder::build_hir_json`](RegexBuilder::build_hir_json).
+        /// Instead of parsing a pattern string, this method deserializes a
+        /// previously exported HIR from JSON and builds a `bytes::Regex`
+        /// directly from it.
+        ///
+        /// This can be useful for scenarios where you want to:
+        /// - Serialize and cache compiled regex representations
+        /// - Analyze or transform HIR before compilation
+        /// - Share regex representations across different systems
+        ///
+        /// If the JSON is invalid or doesn't represent a valid HIR, then an
+        /// error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::bytes::RegexBuilder;
+        ///
+        /// // First, export a pattern as JSON
+        /// let json = RegexBuilder::new(r"\d{2,4}")
+        ///     .build_hir_json()
+        ///     .unwrap();
+        ///
+        /// // Later, rebuild the regex from the JSON
+        /// let re = RegexBuilder::new("")
+        ///     .build_from_hir_json(&json)
+        ///     .unwrap();
+        ///
+        /// assert!(re.is_match(b"123"));
+        /// assert!(!re.is_match(b"a"));
+        /// ```
+        pub fn build_from_hir_json(&self, json: &str) -> Result<Regex, Error> {
+            // build_hir_json returns an array, so we need to parse it as such
+            // and extract the first (and only) element
+            let hirs: Vec<regex_syntax::hir::Hir> = serde_json::from_str(json)
+                .map_err(|e| Error::Syntax(alloc::format!("failed to parse HIR JSON: {}", e)))?;
+            
+            if hirs.is_empty() {
+                return Err(Error::Syntax("HIR JSON array is empty".to_string()));
+            }
+            if hirs.len() > 1 {
+                return Err(Error::Syntax("HIR JSON array contains more than one pattern".to_string()));
+            }
+            
+            let hir = &hirs[0];
+            let mut metac = self.builder.metac.clone();
+            metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(false);
+            
+            meta::Builder::new()
+                .configure(&metac)
+                .build_from_hir(hir)
+                .map(|meta| crate::bytes::Regex { meta, pattern: String::new() })
+                .map_err(Error::from_meta_build_error)
         }
 
         /// This configures Unicode mode for the entire pattern.
@@ -1977,6 +2236,90 @@ pub(crate) mod bytes {
         /// was exceeded, then an error is returned.
         pub fn build(&self) -> Result<RegexSet, Error> {
             self.builder.build_many_bytes()
+        }
+
+        /// Returns a JSON-encoded representation of the parsed HIR (High-level
+        /// Intermediate Representation) for all patterns.
+        ///
+        /// Instead of building an evaluable regex set, this method returns the
+        /// parsed patterns as a JSON string. This can be useful for debugging,
+        /// analysis, or serialization of regex patterns.
+        ///
+        /// If any pattern isn't valid, then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::bytes::RegexSetBuilder;
+        ///
+        /// let json = RegexSetBuilder::new([r"\d+", r"[a-z]+", r"\w+"])
+        ///     .build_hir_json()
+        ///     .unwrap();
+        /// println!("HIR: {}", json);
+        /// ```
+        pub fn build_hir_json(&self) -> Result<String, Error> {
+            let mut syntaxc = self.builder.syntaxc.clone();
+            syntaxc.utf8(false);
+            let pats: Vec<&str> = self.builder.pats.iter().map(|s| s.as_str()).collect();
+            meta::Builder::new()
+                .syntax(&syntaxc)
+                .build_many_hir_json(&pats)
+                .map_err(Error::from_meta_build_error)
+        }
+
+        /// Compiles a regex set from a JSON-encoded HIR (High-level
+        /// Intermediate Representation).
+        ///
+        /// This is the complement of
+        /// [`bytes::RegexSetBuilder::build_hir_json`](RegexSetBuilder::build_hir_json).
+        /// Instead of parsing pattern strings, this method deserializes a
+        /// previously exported HIR from JSON and builds a `bytes::RegexSet`
+        /// directly from it.
+        ///
+        /// The JSON should contain an array of HIR objects, one for each
+        /// pattern in the set.
+        ///
+        /// This can be useful for scenarios where you want to:
+        /// - Serialize and cache compiled regex set representations
+        /// - Analyze or transform HIR before compilation
+        /// - Share regex representations across different systems
+        ///
+        /// If the JSON is invalid or doesn't represent valid HIR expressions,
+        /// then an error is returned.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use regex::bytes::RegexSetBuilder;
+        ///
+        /// // First, export patterns as JSON
+        /// let json = RegexSetBuilder::new([r"\d+", r"[a-z]+"])
+        ///     .build_hir_json()
+        ///     .unwrap();
+        ///
+        /// // Later, rebuild the regex set from the JSON
+        /// let re = RegexSetBuilder::new([""; 0])
+        ///     .build_from_hir_json(&json)
+        ///     .unwrap();
+        ///
+        /// assert!(re.is_match(b"123"));
+        /// assert!(re.is_match(b"abc"));
+        /// ```
+        pub fn build_from_hir_json(&self, json: &str) -> Result<RegexSet, Error> {
+            let hirs: Vec<regex_syntax::hir::Hir> = serde_json::from_str(json)
+                .map_err(|e| Error::Syntax(alloc::format!("failed to parse HIR JSON: {}", e)))?;
+            
+            let mut metac = self.builder.metac.clone();
+            metac
+                .match_kind(MatchKind::All)
+                .utf8_empty(false)
+                .which_captures(WhichCaptures::None);
+            
+            meta::Builder::new()
+                .configure(&metac)
+                .build_many_from_hir(&hirs)
+                .map(|meta| crate::bytes::RegexSet { meta, patterns: alloc::vec![] })
+                .map_err(Error::from_meta_build_error)
         }
 
         /// This configures Unicode mode for the all of the patterns.

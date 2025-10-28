@@ -186,6 +186,12 @@ path = "regex-syntax"
 version = "0.8.5"
 default-features = false
 
+# For serializing/deserializing HIR JSON
+[dependencies.serde_json]
+version = "1.0"
+default-features = false
+features = ["alloc"]
+
 [dev-dependencies]
 # For property based tests.
 quickcheck = { version = "1.0.3", default-features = false }

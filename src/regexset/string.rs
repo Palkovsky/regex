@@ -322,7 +322,7 @@ impl RegexSet {
     /// assert_eq!(matches, vec![0, 1]);
     /// // No matches because the  assertions take the context into account.
     /// let matches: Vec<_> = set.matches_at(hay, 3).into_iter().collect();
-    /// assert_eq!(matches, vec![]);
+    /// assert_eq!(matches, Vec::<usize>::new());
     /// ```
     #[inline]
     pub fn matches_at(&self, haystack: &str, start: usize) -> SetMatches {

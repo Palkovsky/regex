@@ -3,7 +3,7 @@ use core::{
     panic::{RefUnwindSafe, UnwindSafe},
 };
 
-use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+use alloc::{boxed::Box, string::String, sync::Arc, vec, vec::Vec};
 
 use regex_syntax::{
     ast,
@@ -3496,6 +3496,56 @@ impl Builder {
             hirs.push(hir);
         }
         self.build_many_from_hir(&hirs)
+    }
+
+    /// Builds a JSON-encoded `Vec<Hir>` from many pattern strings.
+    ///
+    /// This method has identical arguments to [`Builder::build_many`], but
+    /// instead of returning an evaluable regex, it returns a JSON-encoded
+    /// `Vec<Hir>` representing the parsed high-level intermediate
+    /// representation of the patterns.
+    ///
+    /// If there was a problem parsing any of the patterns, then an error is
+    /// returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use regex_automata::meta::Regex;
+    ///
+    /// let json = Regex::builder()
+    ///     .build_many_hir_json(&["a", "b", "c"])?;
+    /// println!("HIR JSON: {}", json);
+    ///
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[inline(never)]
+    pub fn build_many_hir_json<P: AsRef<str>>(
+        &self,
+        patterns: &[P],
+    ) -> Result<String, BuildError> {
+        use crate::util::primitives::IteratorIndexExt;
+        let (mut asts, mut hirs) = (vec![], vec![]);
+        for (pid, p) in patterns.iter().with_pattern_ids() {            
+            let ast = self
+                .ast
+                .build()
+                .parse(p.as_ref())
+                .map_err(|err| BuildError::ast(pid, err))?;
+            asts.push(ast);
+        }
+        for ((pid, p), ast) in
+            patterns.iter().with_pattern_ids().zip(asts.iter())
+        {
+            let hir = self
+                .hir
+                .build()
+                .translate(p.as_ref(), ast)
+                .map_err(|err| BuildError::hir(pid, err))?;
+            hirs.push(hir);
+        }
+        serde_json::to_string(&hirs)
+            .map_err(|err| BuildError::serialize(err))
     }
 
     /// Builds a `Regex` directly from an `Hir` expression.
