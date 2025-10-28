@@ -11,7 +11,7 @@ on:
 # `schedule` event. By specifying any permission explicitly all others are set
 # to none. By using the principle of least privilege the damage a compromised
 # workflow can do (because of an injection or compromised third party tool or
-# action) is restricted. Currently the worklow doesn't need any additional
+# action) is restricted. Currently, the workflow doesn't need any additional
 # permission except for pulling the code. Adding labels to issues, commenting
 # on pull-requests, etc. may need additional permissions:
 #
@@ -30,18 +30,6 @@ permissions:
 jobs:
   # This job does our basic build+test for supported platforms.
   test:
-    env:
-      # For some builds, we use cross to test on 32-bit and big-endian
-      # systems.
-      CARGO: cargo
-      # When CARGO is set to CROSS, TARGET is set to `--target matrix.target`.
-      # Note that we only use cross on Linux, so setting a target on a
-      # different OS will just use normal cargo.
-      TARGET:
-      # Bump this as appropriate. We pin to a version to make sure CI
-      # continues to work as cross releases in the past have broken things
-      # in subtle ways.
-      CROSS_VERSION: v0.2.5
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -50,18 +38,6 @@ jobs:
         - build: stable
           os: ubuntu-latest
           rust: stable
-        - build: stable-32
-          os: ubuntu-latest
-          rust: stable
-          target: i686-unknown-linux-gnu
-        - build: stable-powerpc64
-          os: ubuntu-latest
-          rust: stable
-          target: powerpc64-unknown-linux-gnu
-        - build: stable-s390x
-          os: ubuntu-latest
-          rust: stable
-          target: s390x-unknown-linux-gnu
         - build: beta
           os: ubuntu-latest
           rust: beta
@@ -79,13 +55,60 @@ jobs:
           rust: stable-x86_64-gnu
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust }}
+    - name: Show CPU info for debugging
+      if: matrix.os == 'ubuntu-latest'
+      run: lscpu
+    - name: Basic build
+      run: cargo build --verbose
+    - name: Build docs
+      run: cargo doc --verbose
+    - name: Run subset of tests
+      run: cargo test --verbose --test integration
+    - name: Build regex-syntax docs
+      run: cargo doc --verbose -p regex-syntax
+    - name: Run subset of regex-syntax tests
+      run: cargo test --verbose -p regex-syntax
+    - name: Build regex-automata docs
+      run: cargo doc --verbose -p regex-automata
+    - name: Run subset of regex-automata tests
+      if: matrix.build != 'win-gnu'  # Just horrifically slow.
+      run: cargo test --verbose -p regex-automata
+    - name: Run regex-lite tests
+      run: cargo test --verbose -p regex-lite
+    - name: Run regex-cli tests
+      run: cargo test --verbose -p regex-cli
+
+  # This job runs tests on cross compiled targets.
+  #
+  # We used to just have one test and do the same thing on normal targets and
+  # cross targets, but cross tests can take an obscenely long time. Especially
+  # the doc tests, where each one is compiled individually. (We haven't moved
+  # to Rust 2024 yet.)
+  cross:
+    env:
+      # Bump this as appropriate. We pin to a version to make sure CI
+      # continues to work as cross releases in the past have broken things
+      # in subtle ways.
+      CROSS_VERSION: v0.2.5
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+        - i686-unknown-linux-gnu
+        - aarch64-unknown-linux-gnu
+        - powerpc-unknown-linux-gnu
+        - powerpc64-unknown-linux-gnu
+        - s390x-unknown-linux-gnu
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
     - name: Install and configure Cross
-      if: matrix.os == 'ubuntu-latest' && matrix.target != ''
       run: |
         # In the past, new releases of 'cross' have broken CI. So for now, we
         # pin it. We also use their pre-compiled binary releases because cross
@@ -96,34 +119,16 @@ jobs:
         cd "$dir"
         curl -LO "https://github.com/cross-rs/cross/releases/download/$CROSS_VERSION/cross-x86_64-unknown-linux-musl.tar.gz"
         tar xf cross-x86_64-unknown-linux-musl.tar.gz
-        echo "CARGO=cross" >> $GITHUB_ENV
-        echo "TARGET=--target ${{ matrix.target }}" >> $GITHUB_ENV
-    - name: Show command used for Cargo
-      run: |
-        echo "cargo command is: $CARGO"
-        echo "target flag is: $TARGET"
-    - name: Show CPU info for debugging
-      if: matrix.os == 'ubuntu-latest'
-      run: lscpu
     - name: Basic build
-      run: ${{ env.CARGO }} build --verbose $TARGET
-    - name: Build docs
-      run: ${{ env.CARGO }} doc --verbose $TARGET
+      run: cross build --all --verbose --target ${{ matrix.target }}
     - name: Run subset of tests
-      run: ${{ env.CARGO }} test --verbose --test integration $TARGET
-    - name: Build regex-syntax docs
-      run: ${{ env.CARGO }} doc --verbose --manifest-path regex-syntax/Cargo.toml $TARGET
+      run: cross test --verbose --test integration --target ${{ matrix.target }}
     - name: Run subset of regex-syntax tests
-      run: ${{ env.CARGO }} test --verbose --manifest-path regex-syntax/Cargo.toml $TARGET
-    - name: Build regex-automata docs
-      run: ${{ env.CARGO }} doc --verbose --manifest-path regex-automata/Cargo.toml $TARGET
+      run: cross test --verbose -p regex-syntax --lib --target ${{ matrix.target }}
     - name: Run subset of regex-automata tests
-      if: matrix.build != 'win-gnu'  # Just horrifically slow.
-      run: ${{ env.CARGO }} test --verbose --manifest-path regex-automata/Cargo.toml $TARGET
+      run: cross test --verbose -p regex-automata --lib --target ${{ matrix.target }}
     - name: Run regex-lite tests
-      run: ${{ env.CARGO }} test --verbose --manifest-path regex-lite/Cargo.toml $TARGET
-    - name: Run regex-cli tests
-      run: ${{ env.CARGO }} test --verbose --manifest-path regex-cli/Cargo.toml $TARGET
+      run: cross test --verbose -p regex-lite --lib --target ${{ matrix.target }}
 
   # This job runs a stripped down version of CI to test the MSRV. The specific
   # reason for doing this is that the regex crate's dev-dependencies tend to
@@ -137,7 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -146,6 +151,24 @@ jobs:
       run: cargo build --verbose
     - name: Build docs
       run: cargo doc --verbose
+
+  # This job checks the docsrs configuration.
+  #
+  # This is important because we enable `doc_cfg`, which is an unstable
+  # feature that can (and has) broken.
+  docsrs:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links --cfg docsrs_regex"
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: nightly
+    - name: Build docs
+      run: cargo doc --verbose --workspace --all-features
 
   # This job runs many more tests for the regex crate proper. Basically,
   # it repeats the same test suite for a bunch of different crate feature
@@ -158,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -171,7 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -184,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -197,7 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -212,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
@@ -222,14 +245,14 @@ jobs:
         toolchain: nightly
         components: miri
     - name: Run full test suite
-      run: cargo miri test --manifest-path regex-automata/Cargo.toml
+      run: cargo miri test -p regex-automata
 
   # Tests that everything is formatted correctly.
   rustfmt:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:

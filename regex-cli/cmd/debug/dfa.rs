@@ -5,7 +5,7 @@ use crate::{
     util::{self, Table},
 };
 
-use {lexopt, regex_automata::dfa::Automaton};
+use regex_automata::dfa::Automaton;
 
 pub fn run_dense(p: &mut lexopt::Parser) -> anyhow::Result<()> {
     const USAGE: &'static str = "\
@@ -29,7 +29,7 @@ COMMANDS:
     match &*cmd {
         "dfa" => run_dense_dfa(p),
         "regex" => run_dense_regex(p),
-        unk => anyhow::bail!("unrecognized command '{}'", unk),
+        unk => anyhow::bail!("unrecognized command '{unk}'"),
     }
 }
 
@@ -88,7 +88,7 @@ OPTIONS:
         if common.table() {
             writeln!(stdout(), "")?;
         }
-        writeln!(stdout(), "{:?}", dfa)?;
+        writeln!(stdout(), "{dfa:?}")?;
     }
     Ok(())
 }
@@ -161,7 +161,7 @@ OPTIONS:
         if common.table() {
             writeln!(stdout(), "")?;
         }
-        writeln!(stdout(), "{:?}", re)?;
+        writeln!(stdout(), "{re:?}")?;
     }
     Ok(())
 }
@@ -188,7 +188,7 @@ COMMANDS:
     match &*cmd {
         "dfa" => run_sparse_dfa(p),
         "regex" => run_sparse_regex(p),
-        unk => anyhow::bail!("unrecognized command '{}'", unk),
+        unk => anyhow::bail!("unrecognized command '{unk}'"),
     }
 }
 
@@ -245,7 +245,7 @@ OPTIONS:
         if common.table() {
             writeln!(stdout(), "")?;
         }
-        writeln!(stdout(), "{:?}", dfa)?;
+        writeln!(stdout(), "{dfa:?}")?;
     }
     Ok(())
 }
@@ -320,7 +320,7 @@ OPTIONS:
         if common.table() {
             writeln!(stdout(), "")?;
         }
-        writeln!(stdout(), "{:?}", re)?;
+        writeln!(stdout(), "{re:?}")?;
     }
     Ok(())
 }

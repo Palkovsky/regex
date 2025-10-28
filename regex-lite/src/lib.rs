@@ -12,7 +12,7 @@ over performance and functionality. As a result, regex searches in this crate
 are typically substantially slower than what is provided by the `regex` crate.
 Moreover, this crate only has the most basic level of Unicode support: it
 matches codepoint by codepoint but otherwise doesn't support Unicode case
-insensivity or things like `\p{Letter}`. In exchange, this crate contributes
+insensitivity or things like `\p{Letter}`. In exchange, this crate contributes
 far less to binary size and compiles much more quickly.
 
 If you just want API documentation, then skip to the [`Regex`] type. Otherwise,
@@ -257,7 +257,7 @@ let dates: Vec<(&str, &str, &str)> = re.captures_iter(hay).map(|caps| {
     // regex matches, and in this context, we know we have a match.
     //
     // Note that we use `caps.name("y").unwrap().as_str()` instead of
-    // `&caps["y"]` because the the lifetime of the former is the same as the
+    // `&caps["y"]` because the lifetime of the former is the same as the
     // lifetime of `hay` above, but the lifetime of the latter is tied to the
     // lifetime of `caps` due to how the `Index` trait is defined.
     let year = caps.name("y").unwrap().as_str();
@@ -569,7 +569,7 @@ assert_eq!((m.start(), m.end()), (5, 5));
 ```
 
 When both CRLF mode and multi-line mode are enabled, then `^` and `$` will
-match either `\r` and `\n`, but never in the middle of a `\r\n`:
+match either `\r` or `\n`, but never in the middle of a `\r\n`:
 
 ```
 use regex_lite::Regex;
@@ -821,7 +821,7 @@ it, a longer haystack will take more time to search.
 * Very large regexes can searches to be quite slow due to increasing the size
 `m` in the worst case `O(m * n)` bound. This is especially true when they
 are combined with counted repetitions. While the regex size limit above will
-protect you from the most egregious cases, the the default size limit still
+protect you from the most egregious cases, the default size limit still
 permits pretty big regexes that can execute more slowly than one might expect.
 * While routines like [`Regex::find`] and [`Regex::captures`] guarantee
 worst case `O(m * n)` search time, routines like [`Regex::find_iter`] and
@@ -831,7 +831,7 @@ case `O(m * n)` time. Thus, iteration of all matches in a haystack has
 worst case `O(m * n^2)`. A good example of a pattern that exhibits this is
 `(?:A+){1000}|` or even `.*[^A-Z]|[A-Z]`.
 
-In general, unstrusted haystacks are easier to stomach than untrusted patterns.
+In general, untrusted haystacks are easier to stomach than untrusted patterns.
 Untrusted patterns give a lot more control to the caller to impact the
 performance of a search. Therefore, permitting untrusted patterns means that
 your only line of defense is to put a limit on how big `m` (and perhaps also

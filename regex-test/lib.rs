@@ -69,7 +69,7 @@ into a TOML file (which is not allowed). There is generally no other reason to
 enable `unescape`.
 * `unicode` - When enabled, the regex pattern should be compiled with its
 corresponding Unicode mode enabled. For example, `[^a]` matches any UTF-8
-encoding of any codepoint other than `a`. Case insensitivty should be Unicode
+encoding of any codepoint other than `a`. Case insensitivity should be Unicode
 aware. Unicode classes like `\pL` are available. The Perl classes `\w`, `\s`
 and `\d` should be Unicode aware. And so on. This is an optional field and is
 enabled by default.
@@ -99,9 +99,7 @@ See [`MatchKind`] for more details. This is an optional field and defaults to
 /// For this reason, `anyhow` is a public dependency and is re-exported here.
 pub extern crate anyhow;
 
-use std::{
-    borrow::Borrow, collections::HashSet, convert::TryFrom, fs, path::Path,
-};
+use std::{borrow::Borrow, collections::HashSet, fs, path::Path};
 
 use {
     anyhow::{bail, Context, Result},
@@ -153,17 +151,17 @@ impl RegexTests {
     /// The given group name is assigned to all loaded tests.
     pub fn load_slice(&mut self, group_name: &str, data: &[u8]) -> Result<()> {
         let data = std::str::from_utf8(&data).with_context(|| {
-            format!("data in {} is not valid UTF-8", group_name)
+            format!("data in {group_name} is not valid UTF-8")
         })?;
         let mut index = 1;
         let mut tests: RegexTests =
             toml::from_str(&data).with_context(|| {
-                format!("error decoding TOML for '{}'", group_name)
+                format!("error decoding TOML for '{group_name}'")
             })?;
         for t in &mut tests.tests {
             t.group = group_name.to_string();
             if t.name.is_empty() {
-                t.name = format!("{}", index);
+                t.name = format!("{index}");
                 index += 1;
             }
             t.full_name = format!("{}/{}", t.group, t.name);
@@ -200,7 +198,7 @@ impl RegexTests {
     /// loaded.
     ///
     /// This is useful to pass to [`TestRunner::test_iter`].
-    pub fn iter(&self) -> RegexTestsIter {
+    pub fn iter(&self) -> RegexTestsIter<'_> {
         RegexTestsIter(self.tests.iter())
     }
 }
@@ -335,7 +333,7 @@ impl RegexTest {
     /// Returns true if regex matching should have Unicode mode enabled.
     ///
     /// For example, `[^a]` matches any UTF-8 encoding of any codepoint other
-    /// than `a`. Case insensitivty should be Unicode aware. Unicode classes
+    /// than `a`. Case insensitivity should be Unicode aware. Unicode classes
     /// like `\pL` are available. The Perl classes `\w`, `\s` and `\d` should
     /// be Unicode aware. And so on.
     ///
@@ -1103,7 +1101,7 @@ impl RegexTestFailureKind {
         let mut buf = String::new();
         match *self {
             RegexTestFailureKind::UserFailure { ref why } => {
-                write!(buf, "failed by implementor because: {}", why)?;
+                write!(buf, "failed by implementor because: {why}")?;
             }
             RegexTestFailureKind::IsMatch => {
                 if test.is_match() {
@@ -1142,13 +1140,13 @@ impl RegexTestFailureKind {
                 write!(buf, "expected regex to NOT compile, but it did")?;
             }
             RegexTestFailureKind::CompileError { ref err } => {
-                write!(buf, "expected regex to compile, failed: {}", err)?;
+                write!(buf, "expected regex to compile, failed: {err}")?;
             }
             RegexTestFailureKind::UnexpectedPanicCompile(ref msg) => {
-                write!(buf, "got unexpected panic while compiling:\n{}", msg)?;
+                write!(buf, "got unexpected panic while compiling:\n{msg}")?;
             }
             RegexTestFailureKind::UnexpectedPanicSearch(ref msg) => {
-                write!(buf, "got unexpected panic while searching:\n{}", msg)?;
+                write!(buf, "got unexpected panic while searching:\n{msg}")?;
             }
         }
         Ok(buf)
@@ -1204,7 +1202,7 @@ pub struct Captures {
     /// the overall match.
     ///
     /// This should either have length 1 (when not capturing group offsets are
-    /// included in the tes tresult) or it should have length equal to the
+    /// included in the test result) or it should have length equal to the
     /// number of capturing groups in the regex pattern.
     groups: Vec<Option<Span>>,
 }

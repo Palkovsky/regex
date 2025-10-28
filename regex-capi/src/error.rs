@@ -4,7 +4,6 @@ use std::fmt;
 use std::str;
 
 use libc::c_char;
-use regex;
 
 #[derive(Debug)]
 pub struct Error {
@@ -22,7 +21,7 @@ pub enum ErrorKind {
 
 impl Error {
     pub fn new(kind: ErrorKind) -> Error {
-        Error { message: None, kind: kind }
+        Error { message: None, kind }
     }
 
     pub fn is_err(&self) -> bool {
@@ -61,7 +60,7 @@ ffi_fn! {
 ffi_fn! {
     fn rure_error_message(err: *mut Error) -> *const c_char {
         let err = unsafe { &mut *err };
-        let cmsg = match CString::new(format!("{}", err)) {
+        let cmsg = match CString::new(format!("{err}")) {
             Ok(msg) => msg,
             Err(err) => {
                 // I guess this can probably happen if the regex itself has a

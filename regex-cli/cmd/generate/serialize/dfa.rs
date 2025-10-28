@@ -1,6 +1,6 @@
 // The code in this module honestly sucks. I did at one point try and make it a
 // little more composable, particularly with respect to the stuff that writes
-// the Rust code, but it became an unintelligble mess. Instead, I squashed
+// the Rust code, but it became an unintelligible mess. Instead, I squashed
 // it down into four functions: dense DFAs, dense regexes, sparse DFAs and
 // sparse regexes. And each of those functions handles the 'regex-automata',
 // 'once-cell' and 'lazy-static' variants. So that's 12 different variants.
@@ -42,7 +42,7 @@ ENGINES:
     match &*args::next_as_command(USAGE, p)? {
         "dfa" => run_dense_dfa(p),
         "regex" => run_dense_regex(p),
-        unk => anyhow::bail!("unrecognized command '{}'", unk),
+        unk => anyhow::bail!("unrecognized command '{unk}'"),
     }
 }
 
@@ -154,7 +154,7 @@ ENGINES:
     match &*args::next_as_command(USAGE, p)? {
         "dfa" => run_sparse_dfa(p),
         "regex" => run_sparse_regex(p),
-        unk => anyhow::bail!("unrecognized command '{}'", unk),
+        unk => anyhow::bail!("unrecognized command '{unk}'"),
     }
 }
 
@@ -389,7 +389,7 @@ impl std::str::FromStr for RustKind {
             "once-cell" => Ok(RustKind::OnceCell),
             "lazy-static" => Ok(RustKind::LazyStatic),
             "none" => Ok(RustKind::None),
-            unk => anyhow::bail!("unrecognized rust output kind: '{}'", unk),
+            unk => anyhow::bail!("unrecognized rust output kind: '{unk}'"),
         }
     }
 }
