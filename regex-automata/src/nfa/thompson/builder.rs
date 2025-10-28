@@ -407,6 +407,7 @@ impl Builder {
     /// This may panic for other invalid uses of a builder. For example, if
     /// a "start capture" state was added without a corresponding "end capture"
     /// state.
+    #[inline(never)]
     pub fn build(
         &self,
         start_anchored: StateID,

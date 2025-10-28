@@ -957,6 +957,7 @@ impl Compiler {
     ///
     /// It is legal to provide an empty slice. In that case, the NFA returned
     /// has no patterns and will never match anything.
+    #[inline(never)]
     fn compile<H: Borrow<Hir>>(&self, exprs: &[H]) -> Result<NFA, BuildError> {
         if exprs.len() > PatternID::LIMIT {
             return Err(BuildError::too_many_patterns(exprs.len()));
