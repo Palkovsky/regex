@@ -1,4 +1,4 @@
-use alloc::{borrow::Cow, string::String, sync::Arc};
+use alloc::{borrow::Cow, string::String, sync::Arc, boxed::Box};
 
 use regex_automata::{meta, util::captures, Input, PatternID};
 
@@ -178,7 +178,8 @@ impl Regex {
     /// assert!(Regex::new(r"(?-u:\w){1000}").is_ok());
     /// ```
     pub fn new(re: &str) -> Result<Regex, Error> {
-        RegexBuilder::new(re).build()
+        let builder = Box::new(RegexBuilder::new(re));
+        builder.build()
     }
 
     /// Returns true if and only if there is a match for the regex anywhere
