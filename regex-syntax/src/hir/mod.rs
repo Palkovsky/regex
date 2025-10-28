@@ -204,7 +204,7 @@ impl core::fmt::Display for ErrorKind {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Hir {
     /// The underlying HIR kind.
-    kind: HirKind,
+    kind: Box<HirKind>,
     /// Analysis info about this HIR, computed during construction.
     props: Properties,
 }
@@ -214,6 +214,11 @@ impl Hir {
     /// Returns a reference to the underlying HIR kind.
     pub fn kind(&self) -> &HirKind {
         &self.kind
+    }
+
+    /// Returns a mut reference to the underlying HIR kind.
+    pub fn kind_mut(&mut self) -> &mut HirKind {
+        &mut self.kind
     }
 
     /// Consumes ownership of this HIR expression and returns its underlying
@@ -231,9 +236,9 @@ impl Hir {
     ///
     /// This is useful because `let Hir { kind, props } = hir;` does not work
     /// because of `Hir`'s custom `Drop` implementation.
-    fn into_parts(mut self) -> (HirKind, Properties) {
+    fn into_parts(mut self) -> (Box<HirKind>, Properties) {
         (
-            core::mem::replace(&mut self.kind, HirKind::Empty),
+            core::mem::replace(&mut self.kind, Box::new(HirKind::Empty)),
             core::mem::replace(&mut self.props, Properties::empty()),
         )
     }
@@ -257,7 +262,7 @@ impl Hir {
     #[inline]
     pub fn empty() -> Hir {
         let props = Properties::empty();
-        Hir { kind: HirKind::Empty, props }
+        Hir { kind: Box::new(HirKind::Empty), props }
     }
 
     /// Returns an HIR expression that can never match anything. That is,
@@ -282,7 +287,7 @@ impl Hir {
         // We can't just call Hir::class here because it defers to Hir::fail
         // in order to canonicalize the Hir value used to represent "cannot
         // match."
-        Hir { kind: HirKind::Class(class), props }
+        Hir { kind: Box::new(HirKind::Class(class)), props }
     }
 
     /// Creates a literal HIR expression.
@@ -347,7 +352,7 @@ impl Hir {
 
         let lit = Literal(bytes);
         let props = Properties::literal(&lit);
-        Hir { kind: HirKind::Literal(lit), props }
+        Hir { kind: Box::new(HirKind::Literal(lit)), props }
     }
 
     /// Creates a class HIR expression. The class may either be defined over
@@ -355,7 +360,7 @@ impl Hir {
     ///
     /// Note that an empty class is permitted. An empty class is equivalent to
     /// `Hir::fail()`.
-    #[inline]
+    #[inline(never)]
     pub fn class(class: Class) -> Hir {
         if class.is_empty() {
             return Hir::fail();
@@ -363,14 +368,14 @@ impl Hir {
             return Hir::literal(bytes);
         }
         let props = Properties::class(&class);
-        Hir { kind: HirKind::Class(class), props }
+        Hir { kind: Box::new(HirKind::Class(class)), props }
     }
 
     /// Creates a look-around assertion HIR expression.
     #[inline]
     pub fn look(look: Look) -> Hir {
         let props = Properties::look(look);
-        Hir { kind: HirKind::Look(look), props }
+        Hir { kind: Box::new(HirKind::Look(look)), props }
     }
 
     /// Creates a repetition HIR expression.
@@ -393,7 +398,7 @@ impl Hir {
             return *rep.sub;
         }
         let props = Properties::repetition(&rep);
-        Hir { kind: HirKind::Repetition(rep), props }
+        Hir { kind: Box::new(HirKind::Repetition(rep)), props }
     }
 
     /// Creates a capture HIR expression.
@@ -406,7 +411,7 @@ impl Hir {
     #[inline]
     pub fn capture(capture: Capture) -> Hir {
         let props = Properties::capture(&capture);
-        Hir { kind: HirKind::Capture(capture), props }
+        Hir { kind: Box::new(HirKind::Capture(capture)), props }
     }
 
     /// Returns the concatenation of the given expressions.
@@ -447,7 +452,7 @@ impl Hir {
         let mut prior_lit: Option<Vec<u8>> = None;
         for sub in subs {
             let (kind, props) = sub.into_parts();
-            match kind {
+            match kind.as_ref() {
                 HirKind::Literal(Literal(bytes)) => {
                     if let Some(ref mut prior_bytes) = prior_lit {
                         prior_bytes.extend_from_slice(&bytes);
@@ -461,8 +466,8 @@ impl Hir {
                 // flattening happens inductively.
                 HirKind::Concat(subs2) => {
                     for sub2 in subs2 {
-                        let (kind2, props2) = sub2.into_parts();
-                        match kind2 {
+                        let (kind2, props2) = sub2.clone().into_parts();
+                        match kind2.as_ref() {
                             HirKind::Literal(Literal(bytes)) => {
                                 if let Some(ref mut prior_bytes) = prior_lit {
                                     prior_bytes.extend_from_slice(&bytes);
@@ -474,7 +479,7 @@ impl Hir {
                                 if let Some(prior_bytes) = prior_lit.take() {
                                     new.push(Hir::literal(prior_bytes));
                                 }
-                                new.push(Hir { kind: kind2, props: props2 });
+                                new.push(Hir { kind: Box::new(kind2.clone()), props: props2 });
                             }
                         }
                     }
@@ -485,7 +490,7 @@ impl Hir {
                     if let Some(prior_bytes) = prior_lit.take() {
                         new.push(Hir::literal(prior_bytes));
                     }
-                    new.push(Hir { kind, props });
+                    new.push(Hir { kind: Box::new(kind.clone()), props });
                 }
             }
         }
@@ -498,7 +503,7 @@ impl Hir {
             return new.pop().unwrap();
         }
         let props = Properties::concat(&new);
-        Hir { kind: HirKind::Concat(new), props }
+        Hir { kind: Box::new(HirKind::Concat(new)), props }
     }
 
     /// Returns the alternation of the given expressions.
@@ -576,12 +581,12 @@ impl Hir {
         let mut new = Vec::with_capacity(subs.len());
         for sub in subs {
             let (kind, props) = sub.into_parts();
-            match kind {
+            match kind.as_ref() {
                 HirKind::Alternation(subs2) => {
-                    new.extend(subs2);
+                    new.extend(subs2.iter().cloned());
                 }
                 kind => {
-                    new.push(Hir { kind, props });
+                    new.push(Hir { kind: Box::new(kind.clone()), props });
                 }
             }
         }
@@ -628,7 +633,7 @@ impl Hir {
             Err(unchanged) => unchanged,
         };
         let props = Properties::alternation(&new);
-        Hir { kind: HirKind::Alternation(new), props }
+        Hir { kind: Box::new(HirKind::Alternation(new)), props }
     }
 
     /// Returns an HIR expression for `.`.
@@ -1930,21 +1935,21 @@ impl Drop for Hir {
 
         let mut stack = vec![mem::replace(self, Hir::empty())];
         while let Some(mut expr) = stack.pop() {
-            match expr.kind {
+            match expr.kind_mut() {
                 HirKind::Empty
                 | HirKind::Literal(_)
                 | HirKind::Class(_)
                 | HirKind::Look(_) => {}
-                HirKind::Capture(ref mut x) => {
+                HirKind::Capture(x) => {
                     stack.push(mem::replace(&mut x.sub, Hir::empty()));
                 }
-                HirKind::Repetition(ref mut x) => {
+                HirKind::Repetition(x) => {
                     stack.push(mem::replace(&mut x.sub, Hir::empty()));
                 }
-                HirKind::Concat(ref mut x) => {
+                HirKind::Concat(x) => {
                     stack.extend(x.drain(..));
                 }
-                HirKind::Alternation(ref mut x) => {
+                HirKind::Alternation(x) => {
                     stack.extend(x.drain(..));
                 }
             }
@@ -2975,6 +2980,7 @@ fn class_bytes(hirs: &[Hir]) -> Option<Class> {
 /// Given a sequence of HIR values where each value corresponds to a literal
 /// that is a single `char`, return that sequence of `char`s. Otherwise return
 /// None. No deduplication is done.
+#[inline(never)]
 fn singleton_chars(hirs: &[Hir]) -> Option<Vec<char>> {
     let mut singletons = vec![];
     for hir in hirs.iter() {
@@ -2998,6 +3004,7 @@ fn singleton_chars(hirs: &[Hir]) -> Option<Vec<char>> {
 /// Given a sequence of HIR values where each value corresponds to a literal
 /// that is a single byte, return that sequence of bytes. Otherwise return
 /// None. No deduplication is done.
+#[inline(never)]
 fn singleton_bytes(hirs: &[Hir]) -> Option<Vec<u8>> {
     let mut singletons = vec![];
     for hir in hirs.iter() {
