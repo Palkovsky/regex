@@ -367,131 +367,40 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
     fn visit_post(&mut self, ast: &Ast) -> Result<()> {
         match *ast {
             Ast::Empty(_) => {
-                (move || {
-                    self.push(HirFrame::Expr(Hir::empty()));
-                })();
+                self.visit_post_empty();
             }
             Ast::Flags(ref x) => {
-                (move || {
-                self.set_flags(&x.flags);
-                    // Flags in the AST are generally considered directives and
-                    // not actual sub-expressions. However, they can be used in
-                    // the concrete syntax like `((?i))`, and we need some kind of
-                    // indication of an expression there, and Empty is the correct
-                    // choice.
-                    //
-                    // There can also be things like `(?i)+`, but we rule those out
-                    // in the parser. In the future, we might allow them for
-                    // consistency sake.
-                    self.push(HirFrame::Expr(Hir::empty()));
-                })();
+                self.visit_post_flags(x);
             }
-            Ast::Literal(ref x) => { 
-                (move || -> Result<()> {
-                    match self.ast_literal_to_scalar(x)? {
-                        Either::Right(byte) => self.push_byte(byte),
-                        Either::Left(ch) => match self.case_fold_char(x.span.clone(), ch)? {
-                            None => self.push_char(ch),
-                            Some(expr) => self.push(HirFrame::Expr(expr)),
-                        },
-                    };
-                    Ok(())
-                })()?;
-            },
+            Ast::Literal(ref x) => {
+                self.visit_post_literal(x)?;
+            }
             Ast::Dot(ref span) => {
-                (move || -> Result<()> {
-                    self.push(HirFrame::Expr(self.hir_dot(*span.clone())?));
-                    Ok(())
-                })()?;
+                self.visit_post_dot(span)?;
             }
             Ast::Assertion(ref x) => {
-                (move || -> Result<()> {
-                    self.push(HirFrame::Expr(self.hir_assertion(x)?));
-                    Ok(())
-                })()?;
+                self.visit_post_assertion(x)?;
             }
             Ast::ClassPerl(ref x) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let cls = self.hir_perl_unicode_class(x)?;
-                        let hcls = hir::Class::Unicode(cls);
-                        self.push(HirFrame::Expr(Hir::class(hcls)));
-                    } else {
-                        let cls = self.hir_perl_byte_class(x)?;
-                        let hcls = hir::Class::Bytes(cls);
-                        self.push(HirFrame::Expr(Hir::class(hcls)));
-                    }
-                    Ok(())
-                })()?;
-            },
+                self.visit_post_class_perl(x)?;
+            }
             Ast::ClassUnicode(ref x) => {
-                (move || -> Result<()> {
-                    let cls = hir::Class::Unicode(self.hir_unicode_class(x)?);
-                    self.push(HirFrame::Expr(Hir::class(cls)));
-                    Ok(())
-                })()?;
+                self.visit_post_class_unicode(x)?;
             }
             Ast::ClassBracketed(ref ast) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                        self.unicode_fold_and_negate(
-                            &ast.span,
-                            ast.negated,
-                            &mut cls,
-                        )?;
-                        let expr = Hir::class(hir::Class::Unicode(cls));
-                        self.push(HirFrame::Expr(expr));
-                    } else {
-                        let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                        self.bytes_fold_and_negate(
-                            &ast.span,
-                            ast.negated,
-                            &mut cls,
-                        )?;
-                        let expr = Hir::class(hir::Class::Bytes(cls));
-                        self.push(HirFrame::Expr(expr));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_post_class_bracketed(ast)?;
             }
             Ast::Repetition(ref x) => {
-                (move || {
-                    let expr = self.pop().unwrap().unwrap_expr();
-                    self.pop().unwrap().unwrap_repetition();
-                    self.push(HirFrame::Expr(self.hir_repetition(x, expr)));
-                })();
+                self.visit_post_repetition(x);
             }
             Ast::Group(ref x) => {
-                (move || {
-                    let expr = self.pop().unwrap().unwrap_expr();
-                    let old_flags = self.pop().unwrap().unwrap_group();
-                    self.trans().flags.set(old_flags);
-                    self.push(HirFrame::Expr(self.hir_capture(x, expr)));
-                })();
+                self.visit_post_group(x);
             }
             Ast::Concat(_) => {
-                (move || {
-                    let mut exprs = vec![];
-                    while let Some(expr) = self.pop_concat_expr() {
-                        if !matches!(*expr.kind(), HirKind::Empty) {
-                            exprs.push(expr);
-                        }
-                    }
-                    exprs.reverse();
-                    self.push(HirFrame::Expr(Hir::concat(exprs)));
-                })();
+                self.visit_post_concat();
             }
             Ast::Alternation(_) => {
-                (move || {
-                    let mut exprs = vec![];
-                    while let Some(expr) = self.pop_alt_expr() {
-                        self.pop().unwrap().unwrap_alternation_pipe();
-                        exprs.push(expr);
-                    }
-                    exprs.reverse();
-                    self.push(HirFrame::Expr(Hir::alternation(exprs)));
-                })();
+                self.visit_post_alternation();
             }
         }
         Ok(())
@@ -530,104 +439,22 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         match *ast {
             ast::ClassSetItem::Empty(_) => {}
             ast::ClassSetItem::Literal(ref x) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                        cls.push(hir::ClassUnicodeRange::new(x.c, x.c));
-                        self.push(HirFrame::ClassUnicode(cls));
-                    } else {
-                        let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                        let byte = self.class_literal_byte(x)?;
-                        cls.push(hir::ClassBytesRange::new(byte, byte));
-                        self.push(HirFrame::ClassBytes(cls));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_literal(x)?;
             }
             ast::ClassSetItem::Range(ref x) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                        cls.push(hir::ClassUnicodeRange::new(x.start.c, x.end.c));
-                        self.push(HirFrame::ClassUnicode(cls));
-                    } else {
-                        let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                        let start = self.class_literal_byte(&x.start)?;
-                        let end = self.class_literal_byte(&x.end)?;
-                        cls.push(hir::ClassBytesRange::new(start, end));
-                        self.push(HirFrame::ClassBytes(cls));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_range(x)?;
             }
             ast::ClassSetItem::Ascii(ref x) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let xcls = self.hir_ascii_unicode_class(x)?;
-                        let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                        cls.union(&xcls);
-                        self.push(HirFrame::ClassUnicode(cls));
-                    } else {
-                        let xcls = self.hir_ascii_byte_class(x)?;
-                        let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                        cls.union(&xcls);
-                        self.push(HirFrame::ClassBytes(cls));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_ascii(x)?;
             }
             ast::ClassSetItem::Unicode(ref x) => {
-                (move || -> Result<()> {
-                    let xcls = self.hir_unicode_class(x)?;
-                    let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                    cls.union(&xcls);
-                    self.push(HirFrame::ClassUnicode(cls));
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_unicode(x)?;
             }
             ast::ClassSetItem::Perl(ref x) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let xcls = self.hir_perl_unicode_class(x)?;
-                        let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                        cls.union(&xcls);
-                        self.push(HirFrame::ClassUnicode(cls));
-                    } else {
-                        let xcls = self.hir_perl_byte_class(x)?;
-                        let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                        cls.union(&xcls);
-                        self.push(HirFrame::ClassBytes(cls));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_perl(x)?;
             }
             ast::ClassSetItem::Bracketed(ref ast) => {
-                (move || -> Result<()> {
-                    if self.flags().unicode() {
-                        let mut cls1 = self.pop().unwrap().unwrap_class_unicode();
-                        self.unicode_fold_and_negate(
-                            &ast.span,
-                            ast.negated,
-                            &mut cls1,
-                        )?;
-
-                        let mut cls2 = self.pop().unwrap().unwrap_class_unicode();
-                        cls2.union(&cls1);
-                        self.push(HirFrame::ClassUnicode(cls2));
-                    } else {
-                        let mut cls1 = self.pop().unwrap().unwrap_class_bytes();
-                        self.bytes_fold_and_negate(
-                            &ast.span,
-                            ast.negated,
-                            &mut cls1,
-                        )?;
-
-                        let mut cls2 = self.pop().unwrap().unwrap_class_bytes();
-                        cls2.union(&cls1);
-                        self.push(HirFrame::ClassBytes(cls2));
-                    }
-                    Ok(())
-                })()?;
+                self.visit_class_set_item_post_bracketed(ast)?;
             }
             // This is handled automatically by the visitor.
             ast::ClassSetItem::Union(_) => {}
@@ -1260,6 +1087,251 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
                 }
             }
         }
+    }
+
+    /// Handle literal class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_literal(&mut self, x: &ast::Literal) -> Result<()> {
+        if self.flags().unicode() {
+            let mut cls = self.pop().unwrap().unwrap_class_unicode();
+            cls.push(hir::ClassUnicodeRange::new(x.c, x.c));
+            self.push(HirFrame::ClassUnicode(cls));
+        } else {
+            let mut cls = self.pop().unwrap().unwrap_class_bytes();
+            let byte = self.class_literal_byte(x)?;
+            cls.push(hir::ClassBytesRange::new(byte, byte));
+            self.push(HirFrame::ClassBytes(cls));
+        }
+        Ok(())
+    }
+
+    /// Handle range class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_range(&mut self, x: &ast::ClassSetRange) -> Result<()> {
+        if self.flags().unicode() {
+            let mut cls = self.pop().unwrap().unwrap_class_unicode();
+            cls.push(hir::ClassUnicodeRange::new(x.start.c, x.end.c));
+            self.push(HirFrame::ClassUnicode(cls));
+        } else {
+            let mut cls = self.pop().unwrap().unwrap_class_bytes();
+            let start = self.class_literal_byte(&x.start)?;
+            let end = self.class_literal_byte(&x.end)?;
+            cls.push(hir::ClassBytesRange::new(start, end));
+            self.push(HirFrame::ClassBytes(cls));
+        }
+        Ok(())
+    }
+
+    /// Handle ASCII class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_ascii(&mut self, x: &ast::ClassAscii) -> Result<()> {
+        if self.flags().unicode() {
+            let xcls = self.hir_ascii_unicode_class(x)?;
+            let mut cls = self.pop().unwrap().unwrap_class_unicode();
+            cls.union(&xcls);
+            self.push(HirFrame::ClassUnicode(cls));
+        } else {
+            let xcls = self.hir_ascii_byte_class(x)?;
+            let mut cls = self.pop().unwrap().unwrap_class_bytes();
+            cls.union(&xcls);
+            self.push(HirFrame::ClassBytes(cls));
+        }
+        Ok(())
+    }
+
+    /// Handle Unicode class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_unicode(&mut self, x: &ast::ClassUnicode) -> Result<()> {
+        let xcls = self.hir_unicode_class(x)?;
+        let mut cls = self.pop().unwrap().unwrap_class_unicode();
+        cls.union(&xcls);
+        self.push(HirFrame::ClassUnicode(cls));
+        Ok(())
+    }
+
+    /// Handle Perl class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_perl(&mut self, x: &ast::ClassPerl) -> Result<()> {
+        if self.flags().unicode() {
+            let xcls = self.hir_perl_unicode_class(x)?;
+            let mut cls = self.pop().unwrap().unwrap_class_unicode();
+            cls.union(&xcls);
+            self.push(HirFrame::ClassUnicode(cls));
+        } else {
+            let xcls = self.hir_perl_byte_class(x)?;
+            let mut cls = self.pop().unwrap().unwrap_class_bytes();
+            cls.union(&xcls);
+            self.push(HirFrame::ClassBytes(cls));
+        }
+        Ok(())
+    }
+
+    /// Handle bracketed class set items. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_class_set_item_post_bracketed(&mut self, ast: &ast::ClassBracketed) -> Result<()> {
+        if self.flags().unicode() {
+            let mut cls1 = self.pop().unwrap().unwrap_class_unicode();
+            self.unicode_fold_and_negate(
+                &ast.span,
+                ast.negated,
+                &mut cls1,
+            )?;
+
+            let mut cls2 = self.pop().unwrap().unwrap_class_unicode();
+            cls2.union(&cls1);
+            self.push(HirFrame::ClassUnicode(cls2));
+        } else {
+            let mut cls1 = self.pop().unwrap().unwrap_class_bytes();
+            self.bytes_fold_and_negate(
+                &ast.span,
+                ast.negated,
+                &mut cls1,
+            )?;
+
+            let mut cls2 = self.pop().unwrap().unwrap_class_bytes();
+            cls2.union(&cls1);
+            self.push(HirFrame::ClassBytes(cls2));
+        }
+        Ok(())
+    }
+
+    /// Handle empty AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_empty(&mut self) {
+        self.push(HirFrame::Expr(Hir::empty()));
+    }
+
+    /// Handle flags AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_flags(&mut self, x: &ast::SetFlags) {
+        self.set_flags(&x.flags);
+        // Flags in the AST are generally considered directives and
+        // not actual sub-expressions. However, they can be used in
+        // the concrete syntax like `((?i))`, and we need some kind of
+        // indication of an expression there, and Empty is the correct
+        // choice.
+        //
+        // There can also be things like `(?i)+`, but we rule those out
+        // in the parser. In the future, we might allow them for
+        // consistency sake.
+        self.push(HirFrame::Expr(Hir::empty()));
+    }
+
+    /// Handle literal AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_literal(&mut self, x: &ast::Literal) -> Result<()> {
+        match self.ast_literal_to_scalar(x)? {
+            Either::Right(byte) => self.push_byte(byte),
+            Either::Left(ch) => match self.case_fold_char(x.span.clone(), ch)? {
+                None => self.push_char(ch),
+                Some(expr) => self.push(HirFrame::Expr(expr)),
+            },
+        };
+        Ok(())
+    }
+
+    /// Handle dot AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_dot(&mut self, span: &Span) -> Result<()> {
+        self.push(HirFrame::Expr(self.hir_dot(span.clone())?));
+        Ok(())
+    }
+
+    /// Handle assertion AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_assertion(&mut self, x: &ast::Assertion) -> Result<()> {
+        self.push(HirFrame::Expr(self.hir_assertion(x)?));
+        Ok(())
+    }
+
+    /// Handle Perl class AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_class_perl(&mut self, x: &ast::ClassPerl) -> Result<()> {
+        if self.flags().unicode() {
+            let cls = self.hir_perl_unicode_class(x)?;
+            let hcls = hir::Class::Unicode(cls);
+            self.push(HirFrame::Expr(Hir::class(hcls)));
+        } else {
+            let cls = self.hir_perl_byte_class(x)?;
+            let hcls = hir::Class::Bytes(cls);
+            self.push(HirFrame::Expr(Hir::class(hcls)));
+        }
+        Ok(())
+    }
+
+    /// Handle Unicode class AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_class_unicode(&mut self, x: &ast::ClassUnicode) -> Result<()> {
+        let cls = hir::Class::Unicode(self.hir_unicode_class(x)?);
+        self.push(HirFrame::Expr(Hir::class(cls)));
+        Ok(())
+    }
+
+    /// Handle bracketed class AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_class_bracketed(&mut self, ast: &ast::ClassBracketed) -> Result<()> {
+        if self.flags().unicode() {
+            let mut cls = self.pop().unwrap().unwrap_class_unicode();
+            self.unicode_fold_and_negate(
+                &ast.span,
+                ast.negated,
+                &mut cls,
+            )?;
+            let expr = Hir::class(hir::Class::Unicode(cls));
+            self.push(HirFrame::Expr(expr));
+        } else {
+            let mut cls = self.pop().unwrap().unwrap_class_bytes();
+            self.bytes_fold_and_negate(
+                &ast.span,
+                ast.negated,
+                &mut cls,
+            )?;
+            let expr = Hir::class(hir::Class::Bytes(cls));
+            self.push(HirFrame::Expr(expr));
+        }
+        Ok(())
+    }
+
+    /// Handle repetition AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_repetition(&mut self, x: &ast::Repetition) {
+        let expr = self.pop().unwrap().unwrap_expr();
+        self.pop().unwrap().unwrap_repetition();
+        self.push(HirFrame::Expr(self.hir_repetition(x, expr)));
+    }
+
+    /// Handle group AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_group(&mut self, x: &ast::Group) {
+        let expr = self.pop().unwrap().unwrap_expr();
+        let old_flags = self.pop().unwrap().unwrap_group();
+        self.trans().flags.set(old_flags);
+        self.push(HirFrame::Expr(self.hir_capture(x, expr)));
+    }
+
+    /// Handle concatenation AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_concat(&mut self) {
+        let mut exprs = vec![];
+        while let Some(expr) = self.pop_concat_expr() {
+            if !matches!(*expr.kind(), HirKind::Empty) {
+                exprs.push(expr);
+            }
+        }
+        exprs.reverse();
+        self.push(HirFrame::Expr(Hir::concat(exprs)));
+    }
+
+    /// Handle alternation AST nodes. Never inlined to control stack usage.
+    #[inline(never)]
+    fn visit_post_alternation(&mut self) {
+        let mut exprs = vec![];
+        while let Some(expr) = self.pop_alt_expr() {
+            self.pop().unwrap().unwrap_alternation_pipe();
+            exprs.push(expr);
+        }
+        exprs.reverse();
+        self.push(HirFrame::Expr(Hir::alternation(exprs)));
     }
 }
 
