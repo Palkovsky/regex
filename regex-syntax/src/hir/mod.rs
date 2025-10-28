@@ -578,63 +578,31 @@ impl Hir {
     ///
     /// Note that these sorts of simplifications are not guaranteed.
     pub fn alternation(subs: Vec<Hir>) -> Hir {
-        // We rebuild the alternation by simplifying it. We proceed similarly
-        // as the concatenation case. But in this case, there's no literal
-        // simplification happening. We're just flattening alternations.
-        let mut new = Vec::with_capacity(subs.len());
-        for sub in subs {
-            let (kind, props) = sub.into_parts();
-            match kind.as_ref() {
-                HirKind::Alternation(subs2) => {
-                    new.extend(subs2.iter().cloned());
-                }
-                kind => {
-                    new.push(Hir { kind: Box::new(kind.clone()), props });
-                }
-            }
-        }
+        // Flatten nested alternations first.
+        let mut new = flatten_alternation(subs);
+        
         if new.is_empty() {
             return Hir::fail();
         } else if new.len() == 1 {
             return new.pop().unwrap();
         }
-        // Now that it's completely flattened, look for the special case of
-        // 'char1|char2|...|charN' and collapse that into a class. Note that
-        // we look for 'char' first and then bytes. The issue here is that if
-        // we find both non-ASCII codepoints and non-ASCII singleton bytes,
-        // then it isn't actually possible to smush them into a single class.
-        // (Because classes are either "all codepoints" or "all bytes." You
-        // can have a class that both matches non-ASCII but valid UTF-8 and
-        // invalid UTF-8.) So we look for all chars and then all bytes, and
-        // don't handle anything else.
-        if let Some(singletons) = singleton_chars(&new) {
-            let it = singletons
-                .into_iter()
-                .map(|ch| ClassUnicodeRange { start: ch, end: ch });
-            return Hir::class(Class::Unicode(ClassUnicode::new(it)));
+        
+        // Try to optimize by converting singletons to character classes.
+        if let Some(hir) = try_singleton_optimization(&new) {
+            return hir;
         }
-        if let Some(singletons) = singleton_bytes(&new) {
-            let it = singletons
-                .into_iter()
-                .map(|b| ClassBytesRange { start: b, end: b });
-            return Hir::class(Class::Bytes(ClassBytes::new(it)));
+        
+        // Try to merge multiple character classes.
+        if let Some(hir) = try_class_optimization(&new) {
+            return hir;
         }
-        // Similar to singleton chars, we can also look for alternations of
-        // classes. Those can be smushed into a single class.
-        if let Some(cls) = class_chars(&new) {
-            return Hir::class(cls);
-        }
-        if let Some(cls) = class_bytes(&new) {
-            return Hir::class(cls);
-        }
-        // Factor out a common prefix if we can, which might potentially
-        // simplify the expression and unlock other optimizations downstream.
-        // It also might generally make NFA matching and DFA construction
-        // faster by reducing the scope of branching in the regex.
+        
+        // Factor out a common prefix if we can.
         new = match lift_common_prefix(new) {
             Ok(hir) => return hir,
             Err(unchanged) => unchanged,
         };
+        
         let props = Properties::alternation(&new);
         Hir { kind: Box::new(HirKind::Alternation(new)), props }
     }
@@ -2961,6 +2929,72 @@ fn class_chars(hirs: &[Hir]) -> Option<Class> {
     Some(Class::Unicode(cls))
 }
 
+/// Flatten nested alternations into a single vector of HIR expressions.
+/// 
+/// This function takes a vector of HIR expressions and flattens any nested
+/// alternations into a single level. It preserves the order of alternatives.
+#[inline(never)]
+fn flatten_alternation(subs: Vec<Hir>) -> Vec<Hir> {
+    // We rebuild the alternation by simplifying it. We proceed similarly
+    // as the concatenation case. But in this case, there's no literal
+    // simplification happening. We're just flattening alternations.
+    let mut new = Vec::with_capacity(subs.len());
+    for sub in subs {
+        let (kind, props) = sub.into_parts();
+        match kind.as_ref() {
+            HirKind::Alternation(subs2) => {
+                new.extend(subs2.iter().cloned());
+            }
+            kind => {
+                new.push(Hir { kind: Box::new(kind.clone()), props });
+            }
+        }
+    }
+    new
+}
+
+/// Try to optimize an alternation of singleton literals into a character class.
+/// 
+/// This looks for the special case of 'char1|char2|...|charN' and collapses
+/// that into a class. Note that we look for 'char' first and then bytes. The
+/// issue here is that if we find both non-ASCII codepoints and non-ASCII
+/// singleton bytes, then it isn't actually possible to smush them into a
+/// single class. (Because classes are either "all codepoints" or "all bytes."
+/// You can have a class that both matches non-ASCII but valid UTF-8 and
+/// invalid UTF-8.) So we look for all chars and then all bytes, and don't
+/// handle anything else.
+#[inline(never)]
+fn try_singleton_optimization(hirs: &[Hir]) -> Option<Hir> {
+    if let Some(singletons) = singleton_chars(hirs) {
+        let it = singletons
+            .into_iter()
+            .map(|ch| ClassUnicodeRange { start: ch, end: ch });
+        return Some(Hir::class(Class::Unicode(ClassUnicode::new(it))));
+    }
+    if let Some(singletons) = singleton_bytes(hirs) {
+        let it = singletons
+            .into_iter()
+            .map(|b| ClassBytesRange { start: b, end: b });
+        return Some(Hir::class(Class::Bytes(ClassBytes::new(it))));
+    }
+    None
+}
+
+/// Try to optimize an alternation of character classes into a single class.
+/// 
+/// Similar to singleton chars, we can also look for alternations of classes.
+/// Those can be smushed into a single class.
+#[inline(never)]
+fn try_class_optimization(hirs: &[Hir]) -> Option<Hir> {
+    if let Some(cls) = class_chars(hirs) {
+        return Some(Hir::class(cls));
+    }
+    if let Some(cls) = class_bytes(hirs) {
+        return Some(Hir::class(cls));
+    }
+    None
+}
+
 /// Given a sequence of HIR values where each value corresponds to a byte class
 /// (or an all-ASCII Unicode class), return a single byte class corresponding
 /// to the union of the classes found.
@@ -3830,11 +3864,11 @@ mod tests {
                 });
 
                 expr = Hir {
-                    kind: HirKind::Concat(vec![expr]),
+                    kind: Box::new(HirKind::Concat(vec![expr])),
                     props: Properties::empty(),
                 };
                 expr = Hir {
-                    kind: HirKind::Alternation(vec![expr]),
+                    kind: Box::new(HirKind::Alternation(vec![expr])),
                     props: Properties::empty(),
                 };
             }

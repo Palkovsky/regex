@@ -741,34 +741,57 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// If no such group could be popped, then an unopened group error is
     /// returned.
     #[inline(never)]
-    fn pop_group(&self, mut group_concat: ast::Concat) -> Result<ast::Concat> {
+    fn pop_group(&self, group_concat: ast::Concat) -> Result<ast::Concat> {
+        let (prior_concat, group, ignore_whitespace, alt) = 
+            self.pop_group_from_stack()?;
+        self.parser().ignore_whitespace.set(ignore_whitespace);
+        let group = self.finalize_group(group_concat, group, alt);
+        let mut result_concat = prior_concat;
+        result_concat.asts.push(Ast::group(group));
+        Ok(result_concat)
+    }
+
+    /// Pop the group state from the parser's stack and extract the components.
+    /// Returns the prior concatenation, group, whitespace setting, and optional
+    /// alternation.
+    #[inline(never)]
+    fn pop_group_from_stack(
+        &self,
+    ) -> Result<(ast::Concat, ast::Group, bool, Option<ast::Alternation>)> {
         use self::GroupState::*;
 
-        assert_eq!(self.char(), ')');
         let mut stack = self.parser().stack_group.borrow_mut();
-        let (mut prior_concat, mut group, ignore_whitespace, alt) = match stack
-            .pop()
-        {
+        match stack.pop() {
             Some(Group { concat, group, ignore_whitespace }) => {
-                (concat, group, ignore_whitespace, None)
+                Ok((concat, group, ignore_whitespace, None))
             }
             Some(Alternation(alt)) => match stack.pop() {
                 Some(Group { concat, group, ignore_whitespace }) => {
-                    (concat, group, ignore_whitespace, Some(alt))
+                    Ok((concat, group, ignore_whitespace, Some(alt)))
                 }
                 None | Some(Alternation(_)) => {
-                    return Err(self.error(
+                    Err(self.error(
                         self.span_char(),
                         ast::ErrorKind::GroupUnopened,
-                    ));
+                    ))
                 }
             },
             None => {
-                return Err(self
-                    .error(self.span_char(), ast::ErrorKind::GroupUnopened));
+                Err(self.error(self.span_char(), ast::ErrorKind::GroupUnopened))
             }
-        };
-        self.parser().ignore_whitespace.set(ignore_whitespace);
+        }
+    }
+
+    /// Finalize the group by setting its spans and AST content.
+    /// This bumps the parser past the closing parenthesis and constructs
+    /// the final group AST with the given concatenation and optional alternation.
+    #[inline(never)]
+    fn finalize_group(
+        &self,
+        mut group_concat: ast::Concat,
+        mut group: ast::Group,
+        alt: Option<ast::Alternation>,
+    ) -> ast::Group {
         group_concat.span.0.end = self.pos().clone();
         self.bump();
         group.span.0.end = self.pos().clone();
@@ -782,8 +805,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 group.ast = Box::new(group_concat.into_ast());
             }
         }
-        prior_concat.asts.push(Ast::group(group));
-        Ok(prior_concat)
+        group
     }
 
     /// Pop the last state from the parser's internal stack, if it exists, and
