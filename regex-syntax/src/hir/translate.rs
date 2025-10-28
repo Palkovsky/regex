@@ -905,9 +905,8 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         use crate::ast::ClassUnicodeKind::*;
 
         if !self.flags().unicode() {
-            return Err(
-                self.error(ast_class.span.clone(), ErrorKind::UnicodeNotAllowed)
-            );
+            return Err(self
+                .error(ast_class.span.clone(), ErrorKind::UnicodeNotAllowed));
         }
         let query = match ast_class.kind {
             OneLetter(name) => ClassQuery::OneLetter(name),
@@ -998,7 +997,9 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         // UTF-8. That's only OK if the translator is configured to allow such
         // things.
         if self.trans().utf8 && !class.is_ascii() {
-            return Err(self.error(ast_class.span.clone(), ErrorKind::InvalidUtf8));
+            return Err(
+                self.error(ast_class.span.clone(), ErrorKind::InvalidUtf8)
+            );
         }
         Ok(class)
     }
@@ -1083,7 +1084,8 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
                     // We can't feasibly support Unicode in
                     // byte oriented classes. Byte classes don't
                     // do Unicode case folding.
-                    Err(self.error(ast.span.clone(), ErrorKind::UnicodeNotAllowed))
+                    Err(self
+                        .error(ast.span.clone(), ErrorKind::UnicodeNotAllowed))
                 }
             }
         }
@@ -1091,7 +1093,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle literal class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_literal(&mut self, x: &ast::Literal) -> Result<()> {
+    fn visit_class_set_item_post_literal(
+        &mut self,
+        x: &ast::Literal,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
             cls.push(hir::ClassUnicodeRange::new(x.c, x.c));
@@ -1107,7 +1112,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle range class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_range(&mut self, x: &ast::ClassSetRange) -> Result<()> {
+    fn visit_class_set_item_post_range(
+        &mut self,
+        x: &ast::ClassSetRange,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
             cls.push(hir::ClassUnicodeRange::new(x.start.c, x.end.c));
@@ -1124,7 +1132,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle ASCII class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_ascii(&mut self, x: &ast::ClassAscii) -> Result<()> {
+    fn visit_class_set_item_post_ascii(
+        &mut self,
+        x: &ast::ClassAscii,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let xcls = self.hir_ascii_unicode_class(x)?;
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
@@ -1141,7 +1152,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle Unicode class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_unicode(&mut self, x: &ast::ClassUnicode) -> Result<()> {
+    fn visit_class_set_item_post_unicode(
+        &mut self,
+        x: &ast::ClassUnicode,
+    ) -> Result<()> {
         let xcls = self.hir_unicode_class(x)?;
         let mut cls = self.pop().unwrap().unwrap_class_unicode();
         cls.union(&xcls);
@@ -1151,7 +1165,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle Perl class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_perl(&mut self, x: &ast::ClassPerl) -> Result<()> {
+    fn visit_class_set_item_post_perl(
+        &mut self,
+        x: &ast::ClassPerl,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let xcls = self.hir_perl_unicode_class(x)?;
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
@@ -1168,25 +1185,20 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle bracketed class set items. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_class_set_item_post_bracketed(&mut self, ast: &ast::ClassBracketed) -> Result<()> {
+    fn visit_class_set_item_post_bracketed(
+        &mut self,
+        ast: &ast::ClassBracketed,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let mut cls1 = self.pop().unwrap().unwrap_class_unicode();
-            self.unicode_fold_and_negate(
-                &ast.span,
-                ast.negated,
-                &mut cls1,
-            )?;
+            self.unicode_fold_and_negate(&ast.span, ast.negated, &mut cls1)?;
 
             let mut cls2 = self.pop().unwrap().unwrap_class_unicode();
             cls2.union(&cls1);
             self.push(HirFrame::ClassUnicode(cls2));
         } else {
             let mut cls1 = self.pop().unwrap().unwrap_class_bytes();
-            self.bytes_fold_and_negate(
-                &ast.span,
-                ast.negated,
-                &mut cls1,
-            )?;
+            self.bytes_fold_and_negate(&ast.span, ast.negated, &mut cls1)?;
 
             let mut cls2 = self.pop().unwrap().unwrap_class_bytes();
             cls2.union(&cls1);
@@ -1222,10 +1234,12 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
     fn visit_post_literal(&mut self, x: &ast::Literal) -> Result<()> {
         match self.ast_literal_to_scalar(x)? {
             Either::Right(byte) => self.push_byte(byte),
-            Either::Left(ch) => match self.case_fold_char(x.span.clone(), ch)? {
-                None => self.push_char(ch),
-                Some(expr) => self.push(HirFrame::Expr(expr)),
-            },
+            Either::Left(ch) => {
+                match self.case_fold_char(x.span.clone(), ch)? {
+                    None => self.push_char(ch),
+                    Some(expr) => self.push(HirFrame::Expr(expr)),
+                }
+            }
         };
         Ok(())
     }
@@ -1261,7 +1275,10 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle Unicode class AST nodes. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_post_class_unicode(&mut self, x: &ast::ClassUnicode) -> Result<()> {
+    fn visit_post_class_unicode(
+        &mut self,
+        x: &ast::ClassUnicode,
+    ) -> Result<()> {
         let cls = hir::Class::Unicode(self.hir_unicode_class(x)?);
         self.push(HirFrame::Expr(Hir::class(cls)));
         Ok(())
@@ -1269,23 +1286,18 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Handle bracketed class AST nodes. Never inlined to control stack usage.
     #[inline(never)]
-    fn visit_post_class_bracketed(&mut self, ast: &ast::ClassBracketed) -> Result<()> {
+    fn visit_post_class_bracketed(
+        &mut self,
+        ast: &ast::ClassBracketed,
+    ) -> Result<()> {
         if self.flags().unicode() {
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
-            self.unicode_fold_and_negate(
-                &ast.span,
-                ast.negated,
-                &mut cls,
-            )?;
+            self.unicode_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
             let expr = Hir::class(hir::Class::Unicode(cls));
             self.push(HirFrame::Expr(expr));
         } else {
             let mut cls = self.pop().unwrap().unwrap_class_bytes();
-            self.bytes_fold_and_negate(
-                &ast.span,
-                ast.negated,
-                &mut cls,
-            )?;
+            self.bytes_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
             let expr = Hir::class(hir::Class::Bytes(cls));
             self.push(HirFrame::Expr(expr));
         }

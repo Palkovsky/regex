@@ -152,7 +152,10 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn starts_for_each_pattern(mut self: Box<Config>, yes: bool) -> Box<Config> {
+    pub fn starts_for_each_pattern(
+        mut self: Box<Config>,
+        yes: bool,
+    ) -> Box<Config> {
         self.starts_for_each_pattern = Some(yes);
         self
     }
@@ -233,7 +236,10 @@ impl Config {
     /// While one needs a little more than 3MB to represent `\w{20}`, it
     /// turns out that you only need a little more than 4KB to represent
     /// `(?-u:\w{20})`. So only use Unicode if you need it!
-    pub fn size_limit(mut self: Box<Config>, limit: Option<usize>) -> Box<Config> {
+    pub fn size_limit(
+        mut self: Box<Config>,
+        limit: Option<usize>,
+    ) -> Box<Config> {
         self.size_limit = Some(limit);
         self
     }

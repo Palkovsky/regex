@@ -1,6 +1,6 @@
 use core::{borrow::Borrow, cell::RefCell};
 
-use alloc::{sync::Arc, vec, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
 
 use regex_syntax::{
     hir::{self, Hir},
@@ -245,7 +245,10 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn nfa_size_limit(mut self: Box<Self>, bytes: Option<usize>) -> Box<Config> {
+    pub fn nfa_size_limit(
+        mut self: Box<Self>,
+        bytes: Option<usize>,
+    ) -> Box<Config> {
         self.nfa_size_limit = Some(bytes);
         self
     }
@@ -407,7 +410,10 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn which_captures(mut self: Box<Config>, which_captures: WhichCaptures) -> Box<Config> {
+    pub fn which_captures(
+        mut self: Box<Config>,
+        which_captures: WhichCaptures,
+    ) -> Box<Config> {
         self.which_captures = Some(which_captures);
         self
     }

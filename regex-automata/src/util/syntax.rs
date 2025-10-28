@@ -183,7 +183,7 @@ impl Config {
     ///
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `i` flag.
-    pub fn case_insensitive(mut self, yes: bool) -> Config {
+    pub fn case_insensitive(&mut self, yes: bool) -> &mut Config {
         self.case_insensitive = yes;
         self
     }
@@ -198,7 +198,7 @@ impl Config {
     ///
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `m` flag.
-    pub fn multi_line(mut self, yes: bool) -> Config {
+    pub fn multi_line(&mut self, yes: bool) -> &mut Config {
         self.multi_line = yes;
         self
     }
@@ -219,7 +219,7 @@ impl Config {
     ///
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `s` flag.
-    pub fn dot_matches_new_line(mut self, yes: bool) -> Config {
+    pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut Config {
         self.dot_matches_new_line = yes;
         self
     }
@@ -236,7 +236,7 @@ impl Config {
     /// * When `multi_line` mode is enabled, `^` and `$` will treat `\r\n`,
     /// `\r` and `\n` as line terminators. And in particular, neither will
     /// match between a `\r` and a `\n`.
-    pub fn crlf(mut self, yes: bool) -> Config {
+    pub fn crlf(&mut self, yes: bool) -> &mut Config {
         self.crlf = yes;
         self
     }
@@ -261,7 +261,7 @@ impl Config {
     /// Note also that this *doesn't* impact the look-around assertions
     /// `(?m:^)` and `(?m:$)`. That's usually controlled by additional
     /// configuration in the regex engine itself.
-    pub fn line_terminator(mut self, byte: u8) -> Config {
+    pub fn line_terminator(&mut self, byte: u8) -> &mut Config {
         self.line_terminator = byte;
         self
     }
@@ -273,7 +273,7 @@ impl Config {
     ///
     /// By default this is disabled. It may alternatively be selectively
     /// enabled in the regular expression itself via the `U` flag.
-    pub fn swap_greed(mut self, yes: bool) -> Config {
+    pub fn swap_greed(&mut self, yes: bool) -> &mut Config {
         self.swap_greed = yes;
         self
     }
@@ -286,7 +286,7 @@ impl Config {
     ///
     /// By default, this is disabled. It may be selectively enabled in the
     /// regular expression by using the `x` flag regardless of this setting.
-    pub fn ignore_whitespace(mut self, yes: bool) -> Config {
+    pub fn ignore_whitespace(&mut self, yes: bool) -> &mut Config {
         self.ignore_whitespace = yes;
         self
     }
@@ -305,7 +305,7 @@ impl Config {
     /// time. This is especially noticeable if your regex contains character
     /// classes like `\w` that are impacted by whether Unicode is enabled or
     /// not. If Unicode is not necessary, you are encouraged to disable it.
-    pub fn unicode(mut self, yes: bool) -> Config {
+    pub fn unicode(&mut self, yes: bool) -> &mut Config {
         self.unicode = yes;
         self
     }
@@ -324,7 +324,7 @@ impl Config {
     /// When enabled (the default), the builder is guaranteed to produce a
     /// regex that will only ever match valid UTF-8 (otherwise, the builder
     /// will return an error).
-    pub fn utf8(mut self, yes: bool) -> Config {
+    pub fn utf8(&mut self, yes: bool) -> &mut Config {
         self.utf8 = yes;
         self
     }
@@ -354,7 +354,7 @@ impl Config {
     /// in a nest depth of `1`. In general, a nest limit is not something that
     /// manifests in an obvious way in the concrete syntax, therefore, it
     /// should not be used in a granular way.
-    pub fn nest_limit(mut self, limit: u32) -> Config {
+    pub fn nest_limit(&mut self, limit: u32) -> &mut Config {
         self.nest_limit = limit;
         self
     }
@@ -374,7 +374,7 @@ impl Config {
     /// message will explicitly mention that backreferences aren't supported.
     ///
     /// Octal syntax is disabled by default.
-    pub fn octal(mut self, yes: bool) -> Config {
+    pub fn octal(&mut self, yes: bool) -> &mut Config {
         self.octal = yes;
         self
     }

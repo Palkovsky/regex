@@ -1,5 +1,5 @@
-use alloc::string::String;
 use alloc::boxed::Box;
+use alloc::string::String;
 
 use regex_automata::{meta, Input, PatternID, PatternSet, PatternSetIter};
 

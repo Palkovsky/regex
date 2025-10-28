@@ -2450,7 +2450,7 @@ impl Cache {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Debug, Default)]
-pub struct Config {
+pub struct ConfigI {
     // As with other configuration types in this crate, we put all our knobs
     // in options so that we can distinguish between "default" and "not set."
     // This makes it possible to easily combine multiple configurations
@@ -2475,6 +2475,10 @@ pub struct Config {
     byte_classes: Option<bool>,
     line_terminator: Option<u8>,
 }
+
+/// A high level configuration for a `Regex`.
+#[derive(Clone, Debug, Default)]
+pub struct Config(Box<ConfigI>);
 
 impl Config {
     /// Create a new configuration object for a `Regex`.
@@ -2512,8 +2516,9 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn match_kind(self, kind: MatchKind) -> Config {
-        Config { match_kind: Some(kind), ..self }
+    pub fn match_kind(&mut self, kind: MatchKind) -> &mut Config {
+        self.0.match_kind = Some(kind);
+        self
     }
 
     /// Toggles whether empty matches are permitted to occur between the code
@@ -2553,8 +2558,9 @@ impl Config {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn utf8_empty(self, yes: bool) -> Config {
-        Config { utf8_empty: Some(yes), ..self }
+    pub fn utf8_empty(&mut self, yes: bool) -> &mut Config {
+        self.0.utf8_empty = Some(yes);
+        self
     }
 
     /// Toggles whether automatic prefilter support is enabled.
@@ -2580,8 +2586,9 @@ impl Config {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn auto_prefilter(self, yes: bool) -> Config {
-        Config { autopre: Some(yes), ..self }
+    pub fn auto_prefilter(&mut self, yes: bool) -> &mut Config {
+        self.0.autopre = Some(yes);
+        self
     }
 
     /// Overrides and sets the prefilter to use inside a `Regex`.
@@ -2649,8 +2656,9 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn prefilter(self, pre: Option<Prefilter>) -> Config {
-        Config { pre: Some(pre), ..self }
+    pub fn prefilter(&mut self, pre: Option<Prefilter>) -> &mut Config {
+        self.0.pre = Some(pre);
+        self
     }
 
     /// Configures what kinds of groups are compiled as "capturing" in the
@@ -2751,8 +2759,11 @@ impl Config {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn which_captures(mut self, which_captures: WhichCaptures) -> Config {
-        self.which_captures = Some(which_captures);
+    pub fn which_captures(
+        &mut self,
+        which_captures: WhichCaptures,
+    ) -> &mut Config {
+        self.0.which_captures = Some(which_captures);
         self
     }
 
@@ -2806,8 +2817,9 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn nfa_size_limit(self, limit: Option<usize>) -> Config {
-        Config { nfa_size_limit: Some(limit), ..self }
+    pub fn nfa_size_limit(&mut self, limit: Option<usize>) -> &mut Config {
+        self.0.nfa_size_limit = Some(limit);
+        self
     }
 
     /// Sets the size limit, in bytes, for the one-pass DFA.
@@ -2838,8 +2850,9 @@ impl Config {
     /// assert!(result.is_ok());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn onepass_size_limit(self, limit: Option<usize>) -> Config {
-        Config { onepass_size_limit: Some(limit), ..self }
+    pub fn onepass_size_limit(&mut self, limit: Option<usize>) -> &mut Config {
+        self.0.onepass_size_limit = Some(limit);
+        self
     }
 
     /// Set the cache capacity, in bytes, for the lazy DFA.
@@ -2880,8 +2893,9 @@ impl Config {
     /// assert!(result.is_ok());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn hybrid_cache_capacity(self, limit: usize) -> Config {
-        Config { hybrid_cache_capacity: Some(limit), ..self }
+    pub fn hybrid_cache_capacity(&mut self, limit: usize) -> &mut Config {
+        self.0.hybrid_cache_capacity = Some(limit);
+        self
     }
 
     /// Sets the size limit, in bytes, for heap memory used for a fully
@@ -2929,8 +2943,9 @@ impl Config {
     /// assert!(result.is_ok());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn dfa_size_limit(self, limit: Option<usize>) -> Config {
-        Config { dfa_size_limit: Some(limit), ..self }
+    pub fn dfa_size_limit(&mut self, limit: Option<usize>) -> &mut Config {
+        self.0.dfa_size_limit = Some(limit);
+        self
     }
 
     /// Sets a limit on the total number of NFA states, beyond which, a full
@@ -2961,8 +2976,9 @@ impl Config {
     /// assert!(result.is_ok());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn dfa_state_limit(self, limit: Option<usize>) -> Config {
-        Config { dfa_state_limit: Some(limit), ..self }
+    pub fn dfa_state_limit(&mut self, limit: Option<usize>) -> &mut Config {
+        self.0.dfa_state_limit = Some(limit);
+        self
     }
 
     /// Whether to attempt to shrink the size of the alphabet for the regex
@@ -2992,8 +3008,9 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn byte_classes(self, yes: bool) -> Config {
-        Config { byte_classes: Some(yes), ..self }
+    pub fn byte_classes(&mut self, yes: bool) -> &mut Config {
+        self.0.byte_classes = Some(yes);
+        self
     }
 
     /// Set the line terminator to be used by the `^` and `$` anchors in
@@ -3026,8 +3043,9 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn line_terminator(self, byte: u8) -> Config {
-        Config { line_terminator: Some(byte), ..self }
+    pub fn line_terminator(&mut self, byte: u8) -> &mut Config {
+        self.0.line_terminator = Some(byte);
+        self
     }
 
     /// Toggle whether the hybrid NFA/DFA (also known as the "lazy DFA") should
@@ -3040,8 +3058,9 @@ impl Config {
     /// When the `hybrid` crate feature is enabled, then this is enabled by
     /// default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
-    pub fn hybrid(self, yes: bool) -> Config {
-        Config { hybrid: Some(yes), ..self }
+    pub fn hybrid(&mut self, yes: bool) -> &mut Config {
+        self.0.hybrid = Some(yes);
+        self
     }
 
     /// Toggle whether a fully compiled DFA should be available for use by the
@@ -3054,8 +3073,9 @@ impl Config {
     /// When the `dfa-build` crate feature is enabled, then this is enabled by
     /// default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
-    pub fn dfa(self, yes: bool) -> Config {
-        Config { dfa: Some(yes), ..self }
+    pub fn dfa(&mut self, yes: bool) -> &mut Config {
+        self.0.dfa = Some(yes);
+        self
     }
 
     /// Toggle whether a one-pass DFA should be available for use by the meta
@@ -3070,8 +3090,9 @@ impl Config {
     /// When the `dfa-onepass` crate feature is enabled, then this is enabled
     /// by default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
-    pub fn onepass(self, yes: bool) -> Config {
-        Config { onepass: Some(yes), ..self }
+    pub fn onepass(&mut self, yes: bool) -> &mut Config {
+        self.0.onepass = Some(yes);
+        self
     }
 
     /// Toggle whether a bounded backtracking regex engine should be available
@@ -3084,8 +3105,9 @@ impl Config {
     /// When the `nfa-backtrack` crate feature is enabled, then this is enabled
     /// by default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
-    pub fn backtrack(self, yes: bool) -> Config {
-        Config { backtrack: Some(yes), ..self }
+    pub fn backtrack(&mut self, yes: bool) -> &mut Config {
+        self.0.backtrack = Some(yes);
+        self
     }
 
     /// Returns the match kind on this configuration, as set by
@@ -3093,7 +3115,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_match_kind(&self) -> MatchKind {
-        self.match_kind.unwrap_or(MatchKind::LeftmostFirst)
+        self.0.match_kind.unwrap_or(MatchKind::LeftmostFirst)
     }
 
     /// Returns whether empty matches must fall on valid UTF-8 boundaries, as
@@ -3101,7 +3123,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_utf8_empty(&self) -> bool {
-        self.utf8_empty.unwrap_or(true)
+        self.0.utf8_empty.unwrap_or(true)
     }
 
     /// Returns whether automatic prefilters are enabled, as set by
@@ -3109,7 +3131,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_auto_prefilter(&self) -> bool {
-        self.autopre.unwrap_or(true)
+        self.0.autopre.unwrap_or(true)
     }
 
     /// Returns a manually set prefilter, if one was set by
@@ -3117,7 +3139,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_prefilter(&self) -> Option<&Prefilter> {
-        self.pre.as_ref().unwrap_or(&None).as_ref()
+        self.0.pre.as_ref().unwrap_or(&None).as_ref()
     }
 
     /// Returns the capture configuration, as set by
@@ -3125,14 +3147,14 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_which_captures(&self) -> WhichCaptures {
-        self.which_captures.unwrap_or(WhichCaptures::All)
+        self.0.which_captures.unwrap_or(WhichCaptures::All)
     }
 
     /// Returns NFA size limit, as set by [`Config::nfa_size_limit`].
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_nfa_size_limit(&self) -> Option<usize> {
-        self.nfa_size_limit.unwrap_or(Some(10 * (1 << 20)))
+        self.0.nfa_size_limit.unwrap_or(Some(10 * (1 << 20)))
     }
 
     /// Returns one-pass DFA size limit, as set by
@@ -3140,7 +3162,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_onepass_size_limit(&self) -> Option<usize> {
-        self.onepass_size_limit.unwrap_or(Some(1 * (1 << 20)))
+        self.0.onepass_size_limit.unwrap_or(Some(1 * (1 << 20)))
     }
 
     /// Returns hybrid NFA/DFA cache capacity, as set by
@@ -3148,7 +3170,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_hybrid_cache_capacity(&self) -> usize {
-        self.hybrid_cache_capacity.unwrap_or(2 * (1 << 20))
+        self.0.hybrid_cache_capacity.unwrap_or(2 * (1 << 20))
     }
 
     /// Returns DFA size limit, as set by [`Config::dfa_size_limit`].
@@ -3173,7 +3195,7 @@ impl Config {
         // itself could make lots of initial allocs proportional to the size
         // of the NFA, and if the NFA is large, it doesn't make sense to pay
         // that cost if we know it's likely to be blown by a large margin.
-        self.dfa_size_limit.unwrap_or(Some(40 * (1 << 10)))
+        self.0.dfa_size_limit.unwrap_or(Some(40 * (1 << 10)))
     }
 
     /// Returns DFA size limit in terms of the number of states in the NFA, as
@@ -3182,7 +3204,7 @@ impl Config {
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_dfa_state_limit(&self) -> Option<usize> {
         // Again, as with the size limit, we keep this very small.
-        self.dfa_state_limit.unwrap_or(Some(30))
+        self.0.dfa_state_limit.unwrap_or(Some(30))
     }
 
     /// Returns whether byte classes are enabled, as set by
@@ -3190,7 +3212,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_byte_classes(&self) -> bool {
-        self.byte_classes.unwrap_or(true)
+        self.0.byte_classes.unwrap_or(true)
     }
 
     /// Returns the line terminator for this configuration, as set by
@@ -3198,7 +3220,7 @@ impl Config {
     ///
     /// If it was not explicitly set, then a default value is returned.
     pub fn get_line_terminator(&self) -> u8 {
-        self.line_terminator.unwrap_or(b'\n')
+        self.0.line_terminator.unwrap_or(b'\n')
     }
 
     /// Returns whether the hybrid NFA/DFA regex engine may be used, as set by
@@ -3208,7 +3230,7 @@ impl Config {
     pub fn get_hybrid(&self) -> bool {
         #[cfg(feature = "hybrid")]
         {
-            self.hybrid.unwrap_or(true)
+            self.0.hybrid.unwrap_or(true)
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -3223,7 +3245,7 @@ impl Config {
     pub fn get_dfa(&self) -> bool {
         #[cfg(feature = "dfa-build")]
         {
-            self.dfa.unwrap_or(true)
+            self.0.dfa.unwrap_or(true)
         }
         #[cfg(not(feature = "dfa-build"))]
         {
@@ -3238,7 +3260,7 @@ impl Config {
     pub fn get_onepass(&self) -> bool {
         #[cfg(feature = "dfa-onepass")]
         {
-            self.onepass.unwrap_or(true)
+            self.0.onepass.unwrap_or(true)
         }
         #[cfg(not(feature = "dfa-onepass"))]
         {
@@ -3253,7 +3275,7 @@ impl Config {
     pub fn get_backtrack(&self) -> bool {
         #[cfg(feature = "nfa-backtrack")]
         {
-            self.backtrack.unwrap_or(true)
+            self.0.backtrack.unwrap_or(true)
         }
         #[cfg(not(feature = "nfa-backtrack"))]
         {
@@ -3265,29 +3287,24 @@ impl Config {
     /// always used. If an option in `o` is not set, then the corresponding
     /// option in `self` is used. If it's not set in `self` either, then it
     /// remains not set.
-    pub(crate) fn overwrite(&self, o: Config) -> Config {
-        Config {
-            match_kind: o.match_kind.or(self.match_kind),
-            utf8_empty: o.utf8_empty.or(self.utf8_empty),
-            autopre: o.autopre.or(self.autopre),
-            pre: o.pre.or_else(|| self.pre.clone()),
-            which_captures: o.which_captures.or(self.which_captures),
-            nfa_size_limit: o.nfa_size_limit.or(self.nfa_size_limit),
-            onepass_size_limit: o
-                .onepass_size_limit
-                .or(self.onepass_size_limit),
-            hybrid_cache_capacity: o
-                .hybrid_cache_capacity
-                .or(self.hybrid_cache_capacity),
-            hybrid: o.hybrid.or(self.hybrid),
-            dfa: o.dfa.or(self.dfa),
-            dfa_size_limit: o.dfa_size_limit.or(self.dfa_size_limit),
-            dfa_state_limit: o.dfa_state_limit.or(self.dfa_state_limit),
-            onepass: o.onepass.or(self.onepass),
-            backtrack: o.backtrack.or(self.backtrack),
-            byte_classes: o.byte_classes.or(self.byte_classes),
-            line_terminator: o.line_terminator.or(self.line_terminator),
-        }
+    pub(crate) fn overwrite(&mut self, o: &Config) -> &mut Config {
+        self.0.match_kind = o.0.match_kind;
+        self.0.utf8_empty = o.0.utf8_empty;
+        self.0.autopre = o.0.autopre;
+        self.0.pre = o.0.pre.clone();
+        self.0.which_captures = o.0.which_captures;
+        self.0.nfa_size_limit = o.0.nfa_size_limit;
+        self.0.onepass_size_limit = o.0.onepass_size_limit;
+        self.0.hybrid_cache_capacity = o.0.hybrid_cache_capacity;
+        self.0.hybrid = o.0.hybrid;
+        self.0.dfa = o.0.dfa;
+        self.0.dfa_size_limit = o.0.dfa_size_limit;
+        self.0.dfa_state_limit = o.0.dfa_state_limit;
+        self.0.onepass = o.0.onepass;
+        self.0.backtrack = o.0.backtrack;
+        self.0.byte_classes = o.0.byte_classes;
+        self.0.line_terminator = o.0.line_terminator;
+        self
     }
 }
 
@@ -3637,8 +3654,8 @@ impl Builder {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn configure(&mut self, config: Config) -> &mut Builder {
-        self.config = self.config.overwrite(config);
+    pub fn configure(&mut self, config: &Config) -> &mut Builder {
+        self.config.overwrite(config);
         self
     }
 
@@ -3665,7 +3682,7 @@ impl Builder {
     /// ```
     pub fn syntax(
         &mut self,
-        config: crate::util::syntax::Config,
+        config: &crate::util::syntax::Config,
     ) -> &mut Builder {
         config.apply_ast(&mut self.ast);
         config.apply_hir(&mut self.hir);

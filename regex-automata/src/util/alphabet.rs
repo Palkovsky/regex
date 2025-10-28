@@ -47,7 +47,6 @@ use crate::util::{
 use alloc::boxed::Box;
 use alloc::vec;
 
-
 /// Unit represents a single unit of haystack for DFA based regex engines.
 ///
 /// It is not expected for consumers of this crate to need to use this type

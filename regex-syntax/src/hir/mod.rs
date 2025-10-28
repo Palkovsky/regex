@@ -479,7 +479,10 @@ impl Hir {
                                 if let Some(prior_bytes) = prior_lit.take() {
                                     new.push(Hir::literal(prior_bytes));
                                 }
-                                new.push(Hir { kind: Box::new(kind2.clone()), props: props2 });
+                                new.push(Hir {
+                                    kind: Box::new(kind2.clone()),
+                                    props: props2,
+                                });
                             }
                         }
                     }

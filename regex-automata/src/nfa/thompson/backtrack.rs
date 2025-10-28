@@ -10,7 +10,7 @@ is can be faster than the [`PikeVM`](thompson::pikevm::PikeVM) in many cases
 because it does less book-keeping.
 */
 
-use alloc::{vec, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use crate::{
     nfa::thompson::{self, BuildError, State, NFA},

@@ -8,7 +8,7 @@ resolving all spans of capturing groups that participate in a match.
 #[cfg(feature = "internal-instrument-pikevm")]
 use core::cell::RefCell;
 
-use alloc::{vec, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use crate::{
     nfa::thompson::{self, BuildError, State, NFA},

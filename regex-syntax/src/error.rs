@@ -232,7 +232,8 @@ impl<'p> Spans<'p> {
                 notes.push(' ');
                 pos += 1;
             }
-            let note_len = span.0.end.0.column.saturating_sub(span.0.start.0.column);
+            let note_len =
+                span.0.end.0.column.saturating_sub(span.0.start.0.column);
             for _ in 0..core::cmp::max(1, note_len) {
                 notes.push('^');
                 pos += 1;

@@ -76,7 +76,9 @@ impl Primitive {
             Literal(lit) => Ok(ClassSetItem::Literal(lit)),
             Perl(cls) => Ok(ClassSetItem::Perl(cls)),
             Unicode(cls) => Ok(ClassSetItem::Unicode(cls)),
-            x => Err(p.error(x.span().clone(), ast::ErrorKind::ClassEscapeInvalid)),
+            x => Err(
+                p.error(x.span().clone(), ast::ErrorKind::ClassEscapeInvalid)
+            ),
         }
     }
 
@@ -94,7 +96,9 @@ impl Primitive {
 
         match self {
             Literal(lit) => Ok(lit),
-            x => Err(p.error(x.span().clone(), ast::ErrorKind::ClassRangeLiteral)),
+            x => Err(
+                p.error(x.span().clone(), ast::ErrorKind::ClassRangeLiteral)
+            ),
         }
     }
 }
@@ -460,7 +464,9 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             Ok(i) => Err(self.error(
                 cap.span.clone(),
-                ast::ErrorKind::GroupNameDuplicate { original: names[i].span.clone() },
+                ast::ErrorKind::GroupNameDuplicate {
+                    original: names[i].span.clone(),
+                },
             )),
         }
     }
@@ -917,7 +923,8 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     fn unclosed_class_error(&self) -> ast::Error {
         for state in self.parser().stack_class.borrow().iter().rev() {
             if let ClassState::Open { ref set, .. } = *state {
-                return self.error(set.span.clone(), ast::ErrorKind::ClassUnclosed);
+                return self
+                    .error(set.span.clone(), ast::ErrorKind::ClassUnclosed);
             }
         }
         // We are guaranteed to have a non-empty stack with at least
@@ -961,7 +968,8 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             }
             None => unreachable!(),
         };
-        let span = Span::new(lhs.span().clone().0.start, rhs.span().clone().0.end);
+        let span =
+            Span::new(lhs.span().clone().0.start, rhs.span().clone().0.end);
         ast::ClassSet::BinaryOp(ast::ClassSetBinaryOp {
             span,
             kind,
@@ -1231,7 +1239,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         self.bump_space();
         if self.is_lookaround_prefix() {
             return Err(self.error(
-                Span::new(open_span.0.start.clone(), self.span().0.end.clone()),
+                Span::new(
+                    open_span.0.start.clone(),
+                    self.span().0.end.clone(),
+                ),
                 ast::ErrorKind::UnsupportedLookAround,
             ));
         }
@@ -1965,7 +1976,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         }
         let prim2 = self.parse_set_class_item()?;
         let range = ast::ClassSetRange {
-            span: Span::new(prim1.span().0.start.clone(), prim2.span().0.end.clone()),
+            span: Span::new(
+                prim1.span().0.start.clone(),
+                prim2.span().0.end.clone(),
+            ),
             start: prim1.into_class_literal(self)?,
             end: prim2.into_class_literal(self)?,
         };
@@ -2077,7 +2091,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             span: Span::new(start, self.pos()),
             negated,
             kind: ast::ClassSet::union(ast::ClassSetUnion {
-                span: Span::new(union.span.0.start.clone(), union.span.0.start.clone()),
+                span: Span::new(
+                    union.span.0.start.clone(),
+                    union.span.0.start.clone(),
+                ),
                 items: vec![],
             }),
         };

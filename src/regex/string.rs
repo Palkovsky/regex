@@ -1,4 +1,4 @@
-use alloc::{borrow::Cow, string::String, sync::Arc, boxed::Box};
+use alloc::{borrow::Cow, boxed::Box, string::String, sync::Arc};
 
 use regex_automata::{meta, util::captures, Input, PatternID};
 

@@ -49,7 +49,8 @@ struct Builder {
 
 impl Default for Builder {
     fn default() -> Builder {
-        let metac = meta::Config::new()
+        let mut metac = meta::Config::new();
+        metac
             .nfa_size_limit(Some(10 * (1 << 20)))
             .hybrid_cache_capacity(2 * (1 << 20));
         Builder { pats: vec![], metac, syntaxc: syntax::Config::default() }
@@ -67,131 +68,126 @@ impl Builder {
         b
     }
 
-    #[inline(never)]
     fn build_one_string(&self) -> Result<crate::Regex, Error> {
-        let metac = self
-            .metac
-            .clone()
-            .match_kind(MatchKind::LeftmostFirst)
-            .utf8_empty(true);
-        let syntaxc = self.syntaxc.clone().utf8(true);
+        let mut metac = self.metac.clone();
+        metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(true);
+        let mut syntaxc = self.syntaxc.clone();
+        syntaxc.utf8(true);
         let pattern = Arc::from(self.pats[0].as_str());
         meta::Builder::new()
-            .configure(metac)
-            .syntax(syntaxc)
+            .configure(&metac)
+            .syntax(&syntaxc)
             .build(&pattern)
             .map(|meta| crate::Regex { meta, pattern })
             .map_err(Error::from_meta_build_error)
     }
 
     fn build_one_bytes(&self) -> Result<crate::bytes::Regex, Error> {
-        let metac = self
-            .metac
-            .clone()
-            .match_kind(MatchKind::LeftmostFirst)
-            .utf8_empty(false);
-        let syntaxc = self.syntaxc.clone().utf8(false);
+        let mut metac = self.metac.clone();
+        metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(false);
+        let mut syntaxc = self.syntaxc.clone();
+        syntaxc.utf8(false);
         let pattern = Arc::from(self.pats[0].as_str());
         meta::Builder::new()
-            .configure(metac)
-            .syntax(syntaxc)
+            .configure(&metac)
+            .syntax(&syntaxc)
             .build(&pattern)
             .map(|meta| crate::bytes::Regex { meta, pattern })
             .map_err(Error::from_meta_build_error)
     }
 
     fn build_many_string(&self) -> Result<crate::RegexSet, Error> {
-        let metac = self
-            .metac
-            .clone()
+        let mut metac = self.metac.clone();
+        metac
             .match_kind(MatchKind::All)
             .utf8_empty(true)
             .which_captures(WhichCaptures::None);
-        let syntaxc = self.syntaxc.clone().utf8(true);
+        let mut syntaxc = self.syntaxc.clone();
+        syntaxc.utf8(true);
         let patterns = Arc::from(self.pats.as_slice());
         meta::Builder::new()
-            .configure(metac)
-            .syntax(syntaxc)
+            .configure(&metac)
+            .syntax(&syntaxc)
             .build_many(&patterns)
             .map(|meta| crate::RegexSet { meta, patterns })
             .map_err(Error::from_meta_build_error)
     }
 
     fn build_many_bytes(&self) -> Result<crate::bytes::RegexSet, Error> {
-        let metac = self
-            .metac
-            .clone()
+        let mut metac = self.metac.clone();
+        metac
             .match_kind(MatchKind::All)
             .utf8_empty(false)
             .which_captures(WhichCaptures::None);
-        let syntaxc = self.syntaxc.clone().utf8(false);
+        let mut syntaxc = self.syntaxc.clone();
+        syntaxc.utf8(false);
         let patterns = Arc::from(self.pats.as_slice());
         meta::Builder::new()
-            .configure(metac)
-            .syntax(syntaxc)
+            .configure(&metac)
+            .syntax(&syntaxc)
             .build_many(&patterns)
             .map(|meta| crate::bytes::RegexSet { meta, patterns })
             .map_err(Error::from_meta_build_error)
     }
 
     fn case_insensitive(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.case_insensitive(yes);
+        self.syntaxc.case_insensitive(yes);
         self
     }
 
     fn multi_line(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.multi_line(yes);
+        self.syntaxc.multi_line(yes);
         self
     }
 
     fn dot_matches_new_line(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.dot_matches_new_line(yes);
+        self.syntaxc.dot_matches_new_line(yes);
         self
     }
 
     fn crlf(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.crlf(yes);
+        self.syntaxc.crlf(yes);
         self
     }
 
     fn line_terminator(&mut self, byte: u8) -> &mut Builder {
-        self.metac = self.metac.clone().line_terminator(byte);
-        self.syntaxc = self.syntaxc.line_terminator(byte);
+        self.metac.line_terminator(byte);
+        self.syntaxc.line_terminator(byte);
         self
     }
 
     fn swap_greed(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.swap_greed(yes);
+        self.syntaxc.swap_greed(yes);
         self
     }
 
     fn ignore_whitespace(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.ignore_whitespace(yes);
+        self.syntaxc.ignore_whitespace(yes);
         self
     }
 
     fn unicode(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.unicode(yes);
+        self.syntaxc.unicode(yes);
         self
     }
 
     fn octal(&mut self, yes: bool) -> &mut Builder {
-        self.syntaxc = self.syntaxc.octal(yes);
+        self.syntaxc.octal(yes);
         self
     }
 
     fn size_limit(&mut self, limit: usize) -> &mut Builder {
-        self.metac = self.metac.clone().nfa_size_limit(Some(limit));
+        self.metac.nfa_size_limit(Some(limit));
         self
     }
 
     fn dfa_size_limit(&mut self, limit: usize) -> &mut Builder {
-        self.metac = self.metac.clone().hybrid_cache_capacity(limit);
+        self.metac.dfa_size_limit(Some(limit));
         self
     }
 
     fn nest_limit(&mut self, limit: u32) -> &mut Builder {
-        self.syntaxc = self.syntaxc.nest_limit(limit);
+        self.syntaxc.nest_limit(limit);
         self
     }
 }
@@ -228,7 +224,6 @@ pub(crate) mod string {
         ///
         /// If the pattern isn't a valid regex or if a configured size limit
         /// was exceeded, then an error is returned.
-        #[inline(never)]
         pub fn build(&self) -> Result<Regex, Error> {
             self.builder.build_one_string()
         }

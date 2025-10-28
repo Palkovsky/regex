@@ -371,11 +371,7 @@ impl Position {
 
     /// Return the coordinates of this position as (offset, line, column).
     pub fn coords(&self) -> (usize, usize, usize) {
-        (
-            self.0.offset,
-            self.0.line,
-            self.0.column,
-        )
+        (self.0.offset, self.0.line, self.0.column)
     }
 }
 

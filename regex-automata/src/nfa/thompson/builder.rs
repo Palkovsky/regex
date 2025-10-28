@@ -407,11 +407,16 @@ impl Builder {
     /// This may panic for other invalid uses of a builder. For example, if
     /// a "start capture" state was added without a corresponding "end capture"
     /// state.
-    
+
     /// Handle processing of an Empty state during NFA building.
     /// Empty states are epsilon transitions that will be optimized away.
     #[inline(never)]
-    fn handle_empty_state(&self, sid: StateID, next: StateID, empties: &mut Vec<(StateID, StateID)>) {
+    fn handle_empty_state(
+        &self,
+        sid: StateID,
+        next: StateID,
+        empties: &mut Vec<(StateID, StateID)>,
+    ) {
         // Since we're removing empty states, we need to handle
         // them later since we don't yet know which new state this
         // empty state will be mapped to.
@@ -421,22 +426,31 @@ impl Builder {
     /// Handle processing of a ByteRange state during NFA building.
     /// Creates a state that transitions on a specific byte range.
     #[inline(never)]
-    fn handle_byte_range_state(&self, trans: Transition, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_byte_range_state(
+        &self,
+        trans: Transition,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         remap[sid] = inner.add(nfa::State::ByteRange { trans });
     }
 
     /// Handle processing of a Sparse state during NFA building.
     /// Optimizes sparse transitions based on count: fail, single range, or sparse.
     #[inline(never)]
-    fn handle_sparse_state(&self, transitions: &[Transition], inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_sparse_state(
+        &self,
+        transitions: &[Transition],
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         remap[sid] = match transitions.len() {
             0 => inner.add(nfa::State::Fail),
-            1 => inner.add(nfa::State::ByteRange {
-                trans: transitions[0],
-            }),
+            1 => inner.add(nfa::State::ByteRange { trans: transitions[0] }),
             _ => {
-                let transitions =
-                    transitions.to_vec().into_boxed_slice();
+                let transitions = transitions.to_vec().into_boxed_slice();
                 let sparse = SparseTransitions { transitions };
                 inner.add(nfa::State::Sparse(sparse))
             }
@@ -446,22 +460,36 @@ impl Builder {
     /// Handle processing of a Look state during NFA building.
     /// Creates a conditional epsilon transition based on look-around assertions.
     #[inline(never)]
-    fn handle_look_state(&self, look: Look, next: StateID, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_look_state(
+        &self,
+        look: Look,
+        next: StateID,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         remap[sid] = inner.add(nfa::State::Look { look, next });
     }
 
     /// Handle processing of a CaptureStart state during NFA building.
     /// Creates a capture state that records the start position of a capture group.
     #[inline(never)]
-    fn handle_capture_start_state(&self, pattern_id: PatternID, group_index: SmallIndex, next: StateID, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_capture_start_state(
+        &self,
+        pattern_id: PatternID,
+        group_index: SmallIndex,
+        next: StateID,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         // We can't remove this empty state because of the side
         // effect of capturing an offset for this capture slot.
         let slot = inner
             .group_info()
             .slot(pattern_id, group_index.as_usize())
             .expect("invalid capture index");
-        let slot =
-            SmallIndex::new(slot).expect("a small enough slot");
+        let slot = SmallIndex::new(slot).expect("a small enough slot");
         remap[sid] = inner.add(nfa::State::Capture {
             next,
             pattern_id,
@@ -473,7 +501,15 @@ impl Builder {
     /// Handle processing of a CaptureEnd state during NFA building.
     /// Creates a capture state that records the end position of a capture group.
     #[inline(never)]
-    fn handle_capture_end_state(&self, pattern_id: PatternID, group_index: SmallIndex, next: StateID, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_capture_end_state(
+        &self,
+        pattern_id: PatternID,
+        group_index: SmallIndex,
+        next: StateID,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         // We can't remove this empty state because of the side
         // effect of capturing an offset for this capture slot.
         // Also, this always succeeds because we check that all
@@ -485,8 +521,7 @@ impl Builder {
             .expect("invalid capture index")
             .checked_add(1)
             .unwrap();
-        let slot =
-            SmallIndex::new(slot).expect("a small enough slot");
+        let slot = SmallIndex::new(slot).expect("a small enough slot");
         remap[sid] = inner.add(nfa::State::Capture {
             next,
             pattern_id,
@@ -498,7 +533,14 @@ impl Builder {
     /// Handle processing of a Union state during NFA building.
     /// Optimizes union states: fail for empty, epsilon for single, binary/multi for multiple.
     #[inline(never)]
-    fn handle_union_state(&self, alternates: &[StateID], inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID, empties: &mut Vec<(StateID, StateID)>) {
+    fn handle_union_state(
+        &self,
+        alternates: &[StateID],
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+        empties: &mut Vec<(StateID, StateID)>,
+    ) {
         if alternates.is_empty() {
             remap[sid] = inner.add(nfa::State::Fail);
         } else if alternates.len() == 1 {
@@ -510,8 +552,7 @@ impl Builder {
                 alt2: alternates[1],
             });
         } else {
-            let alternates =
-                alternates.to_vec().into_boxed_slice();
+            let alternates = alternates.to_vec().into_boxed_slice();
             remap[sid] = inner.add(nfa::State::Union { alternates });
         }
     }
@@ -519,7 +560,14 @@ impl Builder {
     /// Handle processing of a UnionReverse state during NFA building.
     /// Like Union but with reversed priority order for non-greedy matching.
     #[inline(never)]
-    fn handle_union_reverse_state(&self, alternates: &[StateID], inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID, empties: &mut Vec<(StateID, StateID)>) {
+    fn handle_union_reverse_state(
+        &self,
+        alternates: &[StateID],
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+        empties: &mut Vec<(StateID, StateID)>,
+    ) {
         if alternates.is_empty() {
             remap[sid] = inner.add(nfa::State::Fail);
         } else if alternates.len() == 1 {
@@ -531,8 +579,7 @@ impl Builder {
                 alt2: alternates[0],
             });
         } else {
-            let mut alternates =
-                alternates.to_vec().into_boxed_slice();
+            let mut alternates = alternates.to_vec().into_boxed_slice();
             alternates.reverse();
             remap[sid] = inner.add(nfa::State::Union { alternates });
         }
@@ -541,14 +588,25 @@ impl Builder {
     /// Handle processing of a Fail state during NFA building.
     /// Creates a dead-end state with no outgoing transitions.
     #[inline(never)]
-    fn handle_fail_state(&self, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_fail_state(
+        &self,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         remap[sid] = inner.add(nfa::State::Fail);
     }
 
     /// Handle processing of a Match state during NFA building.
     /// Creates a final accepting state that indicates a successful match.
     #[inline(never)]
-    fn handle_match_state(&self, pattern_id: PatternID, inner: &mut Box<nfa::Inner>, remap: &mut Vec<StateID>, sid: StateID) {
+    fn handle_match_state(
+        &self,
+        pattern_id: PatternID,
+        inner: &mut Box<nfa::Inner>,
+        remap: &mut Vec<StateID>,
+        sid: StateID,
+    ) {
         remap[sid] = inner.add(nfa::State::Match { pattern_id });
     }
 
@@ -582,7 +640,11 @@ impl Builder {
         let mut remap = vec![];
         remap.resize(self.states.len(), StateID::ZERO);
 
-        inner.set_starts(start_anchored, start_unanchored, &self.start_pattern);
+        inner.set_starts(
+            start_anchored,
+            start_unanchored,
+            &self.start_pattern,
+        );
         inner.set_captures(&self.captures).map_err(BuildError::captures)?;
         // The idea here is to convert our intermediate states to their final
         // form. The only real complexity here is the process of converting
@@ -595,31 +657,68 @@ impl Builder {
                     self.handle_empty_state(sid, next, &mut empties);
                 }
                 State::ByteRange { trans } => {
-                    self.handle_byte_range_state(trans, &mut inner, &mut remap, sid);
+                    self.handle_byte_range_state(
+                        trans, &mut inner, &mut remap, sid,
+                    );
                 }
                 State::Sparse { ref transitions } => {
-                    self.handle_sparse_state(transitions, &mut inner, &mut remap, sid);
+                    self.handle_sparse_state(
+                        transitions,
+                        &mut inner,
+                        &mut remap,
+                        sid,
+                    );
                 }
                 State::Look { look, next } => {
-                    self.handle_look_state(look, next, &mut inner, &mut remap, sid);
+                    self.handle_look_state(
+                        look, next, &mut inner, &mut remap, sid,
+                    );
                 }
                 State::CaptureStart { pattern_id, group_index, next } => {
-                    self.handle_capture_start_state(pattern_id, group_index, next, &mut inner, &mut remap, sid);
+                    self.handle_capture_start_state(
+                        pattern_id,
+                        group_index,
+                        next,
+                        &mut inner,
+                        &mut remap,
+                        sid,
+                    );
                 }
                 State::CaptureEnd { pattern_id, group_index, next } => {
-                    self.handle_capture_end_state(pattern_id, group_index, next, &mut inner, &mut remap, sid);
+                    self.handle_capture_end_state(
+                        pattern_id,
+                        group_index,
+                        next,
+                        &mut inner,
+                        &mut remap,
+                        sid,
+                    );
                 }
                 State::Union { ref alternates } => {
-                    self.handle_union_state(alternates, &mut inner, &mut remap, sid, &mut empties);
+                    self.handle_union_state(
+                        alternates,
+                        &mut inner,
+                        &mut remap,
+                        sid,
+                        &mut empties,
+                    );
                 }
                 State::UnionReverse { ref alternates } => {
-                    self.handle_union_reverse_state(alternates, &mut inner, &mut remap, sid, &mut empties);
+                    self.handle_union_reverse_state(
+                        alternates,
+                        &mut inner,
+                        &mut remap,
+                        sid,
+                        &mut empties,
+                    );
                 }
                 State::Fail => {
                     self.handle_fail_state(&mut inner, &mut remap, sid);
                 }
                 State::Match { pattern_id } => {
-                    self.handle_match_state(pattern_id, &mut inner, &mut remap, sid);
+                    self.handle_match_state(
+                        pattern_id, &mut inner, &mut remap, sid,
+                    );
                 }
             }
         }
