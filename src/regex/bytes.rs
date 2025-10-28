@@ -98,7 +98,7 @@ use crate::{bytes::RegexBuilder, error::Error};
 #[derive(Clone)]
 pub struct Regex {
     pub(crate) meta: meta::Regex,
-    pub(crate) pattern: Arc<str>,
+    pub(crate) pattern: String,
 }
 
 impl core::fmt::Display for Regex {

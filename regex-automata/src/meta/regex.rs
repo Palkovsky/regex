@@ -3396,8 +3396,8 @@ impl Config {
 #[derive(Clone, Debug)]
 pub struct Builder {
     config: Config,
-    ast: ast::parse::ParserBuilder,
-    hir: hir::translate::TranslatorBuilder,
+    ast: Box<ast::parse::ParserBuilder>,
+    hir: Box<hir::translate::TranslatorBuilder>,
 }
 
 impl Builder {
@@ -3477,7 +3477,7 @@ impl Builder {
     ) -> Result<Regex, BuildError> {
         use crate::util::primitives::IteratorIndexExt;
         let (mut asts, mut hirs) = (vec![], vec![]);
-        for (pid, p) in patterns.iter().with_pattern_ids() {
+        for (pid, p) in patterns.iter().with_pattern_ids() {            
             let ast = self
                 .ast
                 .build()

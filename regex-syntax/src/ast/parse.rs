@@ -131,26 +131,20 @@ pub struct ParserBuilder {
     empty_min_range: bool,
 }
 
-impl Default for ParserBuilder {
-    fn default() -> ParserBuilder {
-        ParserBuilder::new()
-    }
-}
-
 impl ParserBuilder {
     /// Create a new parser builder with a default configuration.
-    pub fn new() -> ParserBuilder {
-        ParserBuilder {
+    pub fn new() -> Box<ParserBuilder> {
+        Box::new(ParserBuilder {
             ignore_whitespace: false,
             nest_limit: 250,
             octal: false,
             empty_min_range: false,
-        }
+        })
     }
 
     /// Build a parser from this configuration with the given pattern.
-    pub fn build(&self) -> Parser {
-        Parser {
+    pub fn build(&self) -> Box<Parser> {
+        Box::new(Parser {
             pos: RefCell::new(Position::new(0, 1, 1)),
             capture_index: Cell::new(0),
             nest_limit: self.nest_limit,
@@ -163,7 +157,7 @@ impl ParserBuilder {
             stack_class: RefCell::new(vec![]),
             capture_names: RefCell::new(vec![]),
             scratch: RefCell::new(String::new()),
-        }
+        })
     }
 
     /// Set the nesting limit for this parser.
@@ -358,7 +352,7 @@ impl Parser {
     /// methods. The parse methods return an abstract syntax tree.
     ///
     /// To set configuration options on the parser, use [`ParserBuilder`].
-    pub fn new() -> Parser {
+    pub fn new() -> Box<Parser> {
         ParserBuilder::new().build()
     }
 

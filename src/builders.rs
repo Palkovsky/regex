@@ -74,12 +74,12 @@ impl Builder {
         metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(true);
         let mut syntaxc = self.syntaxc.clone();
         syntaxc.utf8(true);
-        let pattern = Arc::from(self.pats[0].as_str());
+        let pattern = self.pats[0].as_str();
         meta::Builder::new()
             .configure(&metac)
             .syntax(&syntaxc)
             .build(&pattern)
-            .map(|meta| crate::Regex { meta, pattern })
+            .map(|meta| crate::Regex { meta, pattern: pattern.to_string() })
             .map_err(Error::from_meta_build_error)
     }
 
@@ -88,12 +88,12 @@ impl Builder {
         metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(false);
         let mut syntaxc = self.syntaxc.clone();
         syntaxc.utf8(false);
-        let pattern = Arc::from(self.pats[0].as_str());
+        let pattern = self.pats[0].as_str();
         meta::Builder::new()
             .configure(&metac)
             .syntax(&syntaxc)
             .build(&pattern)
-            .map(|meta| crate::bytes::Regex { meta, pattern })
+            .map(|meta| crate::bytes::Regex { meta, pattern: pattern.to_string() })
             .map_err(Error::from_meta_build_error)
     }
 
@@ -105,12 +105,11 @@ impl Builder {
             .which_captures(WhichCaptures::None);
         let mut syntaxc = self.syntaxc.clone();
         syntaxc.utf8(true);
-        let patterns = Arc::from(self.pats.as_slice());
         meta::Builder::new()
             .configure(&metac)
             .syntax(&syntaxc)
-            .build_many(&patterns)
-            .map(|meta| crate::RegexSet { meta, patterns })
+            .build_many(&self.pats)
+            .map(|meta| crate::RegexSet { meta, patterns: self.pats.clone() })
             .map_err(Error::from_meta_build_error)
     }
 
@@ -122,12 +121,11 @@ impl Builder {
             .which_captures(WhichCaptures::None);
         let mut syntaxc = self.syntaxc.clone();
         syntaxc.utf8(false);
-        let patterns = Arc::from(self.pats.as_slice());
         meta::Builder::new()
             .configure(&metac)
             .syntax(&syntaxc)
-            .build_many(&patterns)
-            .map(|meta| crate::bytes::RegexSet { meta, patterns })
+            .build_many(&self.pats)
+            .map(|meta| crate::bytes::RegexSet { meta, patterns: self.pats.clone() })
             .map_err(Error::from_meta_build_error)
     }
 

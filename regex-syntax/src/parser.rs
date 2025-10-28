@@ -1,4 +1,5 @@
 use crate::{ast, hir, Error};
+use alloc::boxed::Box;
 
 /// A convenience routine for parsing a regex using default options.
 ///
@@ -21,21 +22,24 @@ pub fn parse(pattern: &str) -> Result<hir::Hir, Error> {
 /// This type combines the builder options for both the [AST
 /// `ParserBuilder`](ast::parse::ParserBuilder) and the [HIR
 /// `TranslatorBuilder`](hir::translate::TranslatorBuilder).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ParserBuilder {
-    ast: ast::parse::ParserBuilder,
-    hir: hir::translate::TranslatorBuilder,
+    ast: Box<ast::parse::ParserBuilder>,
+    hir: Box<hir::translate::TranslatorBuilder>,
 }
 
 impl ParserBuilder {
     /// Create a new parser builder with a default configuration.
     pub fn new() -> ParserBuilder {
-        ParserBuilder::default()
+        ParserBuilder {
+            ast: ast::parse::ParserBuilder::new(),
+            hir: hir::translate::TranslatorBuilder::new(),
+        }
     }
 
     /// Build a parser from this configuration with the given pattern.
-    pub fn build(&self) -> Parser {
-        Parser { ast: self.ast.build(), hir: self.hir.build() }
+    pub fn build(&self) -> Box<Parser> {
+        Box::new(Parser { ast: self.ast.build(), hir: self.hir.build() })
     }
 
     /// Set the nesting limit for this parser.
@@ -228,8 +232,8 @@ impl ParserBuilder {
 /// A `Parser` can be configured in more detail via a [`ParserBuilder`].
 #[derive(Clone, Debug)]
 pub struct Parser {
-    ast: ast::parse::Parser,
-    hir: hir::translate::Translator,
+    ast: Box<ast::parse::Parser>,
+    hir: Box<hir::translate::Translator>,
 }
 
 impl Parser {
@@ -240,7 +244,7 @@ impl Parser {
     /// expression.
     ///
     /// To set configuration options on the parser, use [`ParserBuilder`].
-    pub fn new() -> Parser {
+    pub fn new() -> Box<Parser> {
         ParserBuilder::new().build()
     }
 

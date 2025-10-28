@@ -23,30 +23,24 @@ pub struct TranslatorBuilder {
     flags: Flags,
 }
 
-impl Default for TranslatorBuilder {
-    fn default() -> TranslatorBuilder {
-        TranslatorBuilder::new()
-    }
-}
-
 impl TranslatorBuilder {
     /// Create a new translator builder with a default configuration.
-    pub fn new() -> TranslatorBuilder {
-        TranslatorBuilder {
+    pub fn new() -> Box<TranslatorBuilder> {
+        Box::new(TranslatorBuilder {
             utf8: true,
             line_terminator: b'\n',
             flags: Flags::default(),
-        }
+        })
     }
 
     /// Build a translator using the current configuration.
-    pub fn build(&self) -> Translator {
-        Translator {
+    pub fn build(&self) -> Box<Translator> {
+        Box::new(Translator {
             stack: RefCell::new(vec![]),
             flags: Cell::new(self.flags),
             utf8: self.utf8,
             line_terminator: self.line_terminator,
-        }
+        })
     }
 
     /// When disabled, translation will permit the construction of a regular
@@ -157,7 +151,7 @@ pub struct Translator {
 
 impl Translator {
     /// Create a new translator using the default configuration.
-    pub fn new() -> Translator {
+    pub fn new() -> Box<Translator> {
         TranslatorBuilder::new().build()
     }
 
