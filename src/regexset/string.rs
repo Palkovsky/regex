@@ -1,4 +1,5 @@
 use alloc::string::String;
+use alloc::boxed::Box;
 
 use regex_automata::{meta, Input, PatternID, PatternSet, PatternSetIter};
 
@@ -156,7 +157,8 @@ impl RegexSet {
         S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
-        RegexSetBuilder::new(exprs).build()
+        let builder = Box::new(RegexSetBuilder::new(exprs));
+        builder.build()
     }
 
     /// Create a new empty regex set.
