@@ -1269,7 +1269,7 @@ pub(super) struct Inner {
 
 impl Inner {
     /// Runs any last finalization bits and turns this into a full NFA.
-    pub(super) fn into_nfa(mut self) -> NFA {
+    pub(super) fn into_nfa(mut self: Box<Self>) -> NFA {
         self.byte_classes = self.byte_class_set.byte_classes();
         // Do epsilon closure from the start state of every pattern in order
         // to compute various properties such as look-around assertions and
@@ -1340,7 +1340,7 @@ impl Inner {
         }
         self.states.shrink_to_fit();
         self.start_pattern.shrink_to_fit();
-        NFA(Box::new(self))
+        NFA(self)
     }
 
     /// Returns the capturing group info for this NFA.
