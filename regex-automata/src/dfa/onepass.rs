@@ -446,7 +446,7 @@ impl Builder {
     /// These settings only apply when constructing a DFA directly from a
     /// pattern.
     #[cfg(feature = "syntax")]
-    pub fn thompson(&mut self, config: thompson::Config) -> &mut Builder {
+    pub fn thompson(&mut self, config: Box<thompson::Config>) -> &mut Builder {
         self.thompson.configure(config);
         self
     }

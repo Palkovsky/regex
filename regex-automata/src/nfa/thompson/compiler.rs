@@ -38,8 +38,8 @@ pub struct Config {
 
 impl Config {
     /// Return a new default Thompson NFA compiler configuration.
-    pub fn new() -> Config {
-        Config::default()
+    pub fn new() -> Box<Config> {
+        Box::new(Config::default())
     }
 
     /// Whether to enable UTF-8 mode during search or not.
@@ -144,7 +144,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn utf8(mut self, yes: bool) -> Config {
+    pub fn utf8(mut self: Box<Self>, yes: bool) -> Box<Config> {
         self.utf8 = Some(yes);
         self
     }
@@ -196,7 +196,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn reverse(mut self, yes: bool) -> Config {
+    pub fn reverse(mut self: Box<Self>, yes: bool) -> Box<Config> {
         self.reverse = Some(yes);
         self
     }
@@ -245,7 +245,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn nfa_size_limit(mut self, bytes: Option<usize>) -> Config {
+    pub fn nfa_size_limit(mut self: Box<Self>, bytes: Option<usize>) -> Box<Config> {
         self.nfa_size_limit = Some(bytes);
         self
     }
@@ -299,7 +299,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn shrink(mut self, yes: bool) -> Config {
+    pub fn shrink(mut self: Box<Self>, yes: bool) -> Box<Config> {
         self.shrink = Some(yes);
         self
     }
@@ -340,7 +340,7 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[deprecated(since = "0.3.5", note = "use which_captures instead")]
-    pub fn captures(self, yes: bool) -> Config {
+    pub fn captures(self: Box<Config>, yes: bool) -> Box<Config> {
         self.which_captures(if yes {
             WhichCaptures::All
         } else {
@@ -407,7 +407,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn which_captures(mut self, which_captures: WhichCaptures) -> Config {
+    pub fn which_captures(mut self: Box<Config>, which_captures: WhichCaptures) -> Box<Config> {
         self.which_captures = Some(which_captures);
         self
     }
@@ -451,7 +451,7 @@ impl Config {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn look_matcher(mut self, m: LookMatcher) -> Config {
+    pub fn look_matcher(mut self: Box<Config>, m: LookMatcher) -> Box<Config> {
         self.look_matcher = Some(m);
         self
     }
@@ -461,7 +461,7 @@ impl Config {
     /// This is enabled by default. It is made available for tests only to make
     /// it easier to unit test the output of the compiler.
     #[cfg(test)]
-    fn unanchored_prefix(mut self, yes: bool) -> Config {
+    fn unanchored_prefix(mut self: Box<Config>, yes: bool) -> Box<Config> {
         self.unanchored_prefix = Some(yes);
         self
     }
@@ -522,8 +522,8 @@ impl Config {
     /// always used. If an option in `o` is not set, then the corresponding
     /// option in `self` is used. If it's not set in `self` either, then it
     /// remains not set.
-    pub(crate) fn overwrite(&self, o: Config) -> Config {
-        Config {
+    pub(crate) fn overwrite(&self, o: Box<Config>) -> Box<Config> {
+        Box::new(Config {
             utf8: o.utf8.or(self.utf8),
             reverse: o.reverse.or(self.reverse),
             nfa_size_limit: o.nfa_size_limit.or(self.nfa_size_limit),
@@ -532,7 +532,7 @@ impl Config {
             look_matcher: o.look_matcher.or_else(|| self.look_matcher.clone()),
             #[cfg(test)]
             unanchored_prefix: o.unanchored_prefix.or(self.unanchored_prefix),
-        }
+        })
     }
 }
 
@@ -718,33 +718,33 @@ mutably both inside and outside the closure at the same time.
 pub struct Compiler {
     /// A regex parser, used when compiling an NFA directly from a pattern
     /// string.
-    parser: ParserBuilder,
+    parser: Box<ParserBuilder>,
     /// The compiler configuration.
-    config: Config,
+    config: Box<Config>,
     /// The builder for actually constructing an NFA. This provides a
     /// convenient abstraction for writing a compiler.
-    builder: RefCell<Builder>,
+    builder: Box<RefCell<Builder>>,
     /// State used for compiling character classes to UTF-8 byte automata.
     /// State is not retained between character class compilations. This just
     /// serves to amortize allocation to the extent possible.
-    utf8_state: RefCell<Utf8State>,
+    utf8_state: Box<RefCell<Utf8State>>,
     /// State used for arranging character classes in reverse into a trie.
-    trie_state: RefCell<RangeTrie>,
+    trie_state: Box<RefCell<RangeTrie>>,
     /// State used for caching common suffixes when compiling reverse UTF-8
     /// automata (for Unicode character classes).
-    utf8_suffix: RefCell<Utf8SuffixMap>,
+    utf8_suffix: Box<RefCell<Utf8SuffixMap>>,
 }
 
 impl Compiler {
     /// Create a new NFA builder with its default configuration.
     pub fn new() -> Box<Compiler> {
         Box::new(Compiler {
-            parser: ParserBuilder::new(),
-            config: Config::default(),
-            builder: RefCell::new(Builder::new()),
-            utf8_state: RefCell::new(Utf8State::new()),
-            trie_state: RefCell::new(RangeTrie::new()),
-            utf8_suffix: RefCell::new(Utf8SuffixMap::new(1000)),
+            parser: Box::new(ParserBuilder::new()),
+            config: Box::new(Config::default()),
+            builder: Box::new(RefCell::new(Builder::new())),
+            utf8_state: Box::new(RefCell::new(Utf8State::new())),
+            trie_state: Box::new(RefCell::new(RangeTrie::new())),
+            utf8_suffix: Box::new(RefCell::new(Utf8SuffixMap::new(1000))),
         })
     }
 
@@ -916,7 +916,7 @@ impl Compiler {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn configure(&mut self, config: Config) -> &mut Compiler {
+    pub fn configure(&mut self, config: Box<Config>) -> &mut Compiler {
         self.config = self.config.overwrite(config);
         self
     }

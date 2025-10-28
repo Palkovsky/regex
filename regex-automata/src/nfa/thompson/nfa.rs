@@ -344,7 +344,7 @@ impl NFA {
     /// assert!(result.is_err());
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn config() -> Config {
+    pub fn config() -> Box<Config> {
         Config::new()
     }
 
