@@ -1334,6 +1334,7 @@ extern crate std;
 pub use crate::error::Error;
 
 pub use crate::{builders::string::*, regex::string::*, regexset::string::*};
+pub use regex_syntax::hir::Hir;
 
 mod builders;
 pub mod bytes;
