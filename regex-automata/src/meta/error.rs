@@ -32,7 +32,6 @@ pub struct BuildError {
 enum BuildErrorKind {
     Syntax { pid: PatternID, err: regex_syntax::Error },
     NFA(nfa::thompson::BuildError),
-    Serialize(alloc::string::String),
 }
 
 impl BuildError {
@@ -92,10 +91,6 @@ impl BuildError {
     pub(crate) fn nfa(err: nfa::thompson::BuildError) -> BuildError {
         BuildError { kind: BuildErrorKind::NFA(err) }
     }
-
-    pub(crate) fn serialize(err: serde_json::Error) -> BuildError {
-        BuildError { kind: BuildErrorKind::Serialize(alloc::format!("{}", err)) }
-    }
 }
 
 #[cfg(feature = "std")]
@@ -104,7 +99,6 @@ impl std::error::Error for BuildError {
         match self.kind {
             BuildErrorKind::Syntax { ref err, .. } => Some(err),
             BuildErrorKind::NFA(ref err) => Some(err),
-            BuildErrorKind::Serialize(_) => None,
         }
     }
 }
@@ -116,9 +110,6 @@ impl core::fmt::Display for BuildError {
                 write!(f, "error parsing pattern {}", pid.as_usize())
             }
             BuildErrorKind::NFA(_) => write!(f, "error building NFA"),
-            BuildErrorKind::Serialize(ref msg) => {
-                write!(f, "error serializing HIR: {}", msg)
-            }
         }
     }
 }
