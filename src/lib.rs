@@ -1345,6 +1345,11 @@ mod pattern;
 mod regex;
 mod regexset;
 
+pub mod regex_automata {
+    //! Re-export of the `regex-automata` crate.
+    pub use regex_automata::*;
+}
+
 /// Escapes all regular expression meta characters in `pattern`.
 ///
 /// The string returned may be safely used as a literal in a regular
