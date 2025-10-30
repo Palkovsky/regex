@@ -17,6 +17,8 @@ See the [parent module](crate::dfa) for examples.
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 #[cfg(feature = "dfa-build")]
 use crate::dfa::dense::BuildError;
@@ -845,7 +847,7 @@ impl Builder {
     #[cfg(all(feature = "syntax", feature = "dfa-build"))]
     pub fn thompson(
         &mut self,
-        config: crate::nfa::thompson::Config,
+        config: Box<crate::nfa::thompson::Config>,
     ) -> &mut Builder {
         self.dfa.thompson(config);
         self

@@ -1134,7 +1134,7 @@ impl Config {
 pub struct Builder {
     config: Config,
     #[cfg(feature = "syntax")]
-    thompson: thompson::Compiler,
+    thompson: Box<thompson::Compiler>,
 }
 
 #[cfg(feature = "dfa-build")]
@@ -1315,7 +1315,7 @@ impl Builder {
     /// These settings only apply when constructing a DFA directly from a
     /// pattern.
     #[cfg(feature = "syntax")]
-    pub fn thompson(&mut self, config: thompson::Config) -> &mut Builder {
+    pub fn thompson(&mut self, config: Box<thompson::Config>) -> &mut Builder {
         self.thompson.configure(config);
         self
     }
@@ -3457,7 +3457,7 @@ impl TransitionTable<Vec<u32>> {
     fn minimal(classes: ByteClasses) -> TransitionTable<Vec<u32>> {
         let mut tt = TransitionTable {
             table: vec![],
-            classes,
+            classes: classes.clone(),
             stride2: classes.stride2(),
         };
         // Two states, regardless of alphabet size, can always fit into u32.
