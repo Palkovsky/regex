@@ -2406,6 +2406,7 @@ impl<'a> DFA<&'a [u32]> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    #[inline(never)]
     pub unsafe fn from_bytes_unchecked(
         slice: &'a [u8],
     ) -> Result<(DFA<&'a [u32]>, usize), DeserializeError> {
