@@ -183,6 +183,7 @@ impl<'a> Accels<&'a [AccelTy]> {
     ///
     /// Callers may check the validity of every accelerator with the `validate`
     /// method.
+    #[inline(never)]
     pub fn from_bytes_unchecked(
         mut slice: &'a [u8],
     ) -> Result<(Accels<&'a [AccelTy]>, usize), DeserializeError> {

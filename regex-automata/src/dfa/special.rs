@@ -220,6 +220,7 @@ impl Special {
     ///
     /// Upon success, this returns the number of bytes read in addition to the
     /// special state IDs themselves.
+    #[inline(never)]
     pub(crate) fn from_bytes(
         mut slice: &[u8],
     ) -> Result<(Special, usize), DeserializeError> {

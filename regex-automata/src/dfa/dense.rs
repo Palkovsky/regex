@@ -2340,7 +2340,7 @@ impl<'a> DFA<&'a [u32]> {
     /// `from_bytes` will return an error if you get it wrong.
     pub fn from_bytes(
         slice: &'a [u8],
-    ) -> Result<(DFA<&'a [u32]>, usize), DeserializeError> {
+    ) -> Result<(Box<DFA<&'a [u32]>>, usize), DeserializeError> {
         // SAFETY: This is safe because we validate the transition table, start
         // table, match states and accelerators below. If any validation fails,
         // then we return an error.
@@ -2409,7 +2409,7 @@ impl<'a> DFA<&'a [u32]> {
     #[inline(never)]
     pub unsafe fn from_bytes_unchecked(
         slice: &'a [u8],
-    ) -> Result<(DFA<&'a [u32]>, usize), DeserializeError> {
+    ) -> Result<(Box<DFA<&'a [u32]>>, usize), DeserializeError> {
         let mut nr = 0;
 
         nr += wire::skip_initial_padding(slice);
@@ -2445,7 +2445,19 @@ impl<'a> DFA<&'a [u32]> {
 
         // Prefilters don't support serialization, so they're always absent.
         let pre = None;
-        Ok((DFA { tt, st, ms, special, accels, pre, quitset, flags }, nr))
+        Ok((
+            Box::new(DFA {
+                tt: *tt,
+                st: *st,
+                ms: *ms,
+                special,
+                accels,
+                pre,
+                quitset,
+                flags: *flags,
+            }),
+            nr,
+        ))
     }
 
     /// The implementation of the public `write_to` serialization methods,
@@ -3385,9 +3397,11 @@ impl<'a> TransitionTable<&'a [u32]> {
     /// Callers that use this function must either pass on the safety invariant
     /// or guarantee that the bytes given contain a valid transition table.
     /// This guarantee is upheld by the bytes written by `write_to`.
+    #[inline(never)]
     unsafe fn from_bytes_unchecked(
         mut slice: &'a [u8],
-    ) -> Result<(TransitionTable<&'a [u32]>, usize), DeserializeError> {
+    ) -> Result<(Box<TransitionTable<&'a [u32]>>, usize), DeserializeError>
+    {
         let slice_start = slice.as_ptr().as_usize();
 
         let (state_len, nr) =
@@ -3441,11 +3455,14 @@ impl<'a> TransitionTable<&'a [u32]> {
         // checked both above, so the cast below is safe.
         //
         // N.B. This is the only not-safe code in this function.
-        let table = core::slice::from_raw_parts(
-            table_bytes.as_ptr().cast::<u32>(),
-            trans_len,
-        );
-        let tt = TransitionTable { table, classes, stride2 };
+        let tt = Box::new(TransitionTable {
+            table: core::slice::from_raw_parts(
+                table_bytes.as_ptr().cast::<u32>(),
+                trans_len,
+            ),
+            classes,
+            stride2,
+        });
         Ok((tt, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -3987,9 +4004,10 @@ impl<'a> StartTable<&'a [u32]> {
     /// Callers that use this function must either pass on the safety invariant
     /// or guarantee that the bytes given contain valid starting state IDs.
     /// This guarantee is upheld by the bytes written by `write_to`.
+    #[inline(never)]
     unsafe fn from_bytes_unchecked(
         mut slice: &'a [u8],
-    ) -> Result<(StartTable<&'a [u32]>, usize), DeserializeError> {
+    ) -> Result<(Box<StartTable<&'a [u32]>>, usize), DeserializeError> {
         let slice_start = slice.as_ptr().as_usize();
 
         let (kind, nr) = StartKind::from_bytes(slice)?;
@@ -4074,19 +4092,18 @@ impl<'a> StartTable<&'a [u32]> {
         // checked both above, so the cast below is safe.
         //
         // N.B. This is the only not-safe code in this function.
-        let table = core::slice::from_raw_parts(
-            table_bytes.as_ptr().cast::<u32>(),
-            start_state_len,
-        );
-        let st = StartTable {
-            table,
+        let st = Box::new(StartTable {
+            table: core::slice::from_raw_parts(
+                table_bytes.as_ptr().cast::<u32>(),
+                start_state_len,
+            ),
             kind,
             start_map,
             stride,
             pattern_len,
             universal_start_unanchored,
             universal_start_anchored,
-        };
+        });
         Ok((st, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -4379,9 +4396,10 @@ struct MatchStates<T> {
 }
 
 impl<'a> MatchStates<&'a [u32]> {
+    #[inline(never)]
     unsafe fn from_bytes_unchecked(
         mut slice: &'a [u8],
-    ) -> Result<(MatchStates<&'a [u32]>, usize), DeserializeError> {
+    ) -> Result<(Box<MatchStates<&'a [u32]>>, usize), DeserializeError> {
         let slice_start = slice.as_ptr().as_usize();
 
         // Read the total number of match states.
@@ -4406,10 +4424,6 @@ impl<'a> MatchStates<&'a [u32]> {
         //
         // N.B. This is one of the few not-safe snippets in this function,
         // so we mark it explicitly to call it out.
-        let slices = core::slice::from_raw_parts(
-            slices_bytes.as_ptr().cast::<u32>(),
-            pair_len,
-        );
 
         // Read the total number of unique pattern IDs (which is always 1 more
         // than the maximum pattern ID in this automaton, since pattern IDs are
@@ -4442,7 +4456,14 @@ impl<'a> MatchStates<&'a [u32]> {
             idlen,
         );
 
-        let ms = MatchStates { slices, pattern_ids, pattern_len };
+        let ms = Box::new(MatchStates {
+            slices: core::slice::from_raw_parts(
+                slices_bytes.as_ptr().cast::<u32>(),
+                pair_len,
+            ),
+            pattern_ids,
+            pattern_len,
+        });
         Ok((ms, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -4728,15 +4749,16 @@ impl Flags {
 
     /// Deserializes the flags from the given slice. On success, this also
     /// returns the number of bytes read from the slice.
+    #[inline(never)]
     pub(crate) fn from_bytes(
         slice: &[u8],
-    ) -> Result<(Flags, usize), DeserializeError> {
+    ) -> Result<(Box<Flags>, usize), DeserializeError> {
         let (bits, nread) = wire::try_read_u32(slice, "flag bitset")?;
-        let flags = Flags {
+        let flags = Box::new(Flags {
             has_empty: bits & (1 << 0) != 0,
             is_utf8: bits & (1 << 1) != 0,
             is_always_start_anchored: bits & (1 << 2) != 0,
-        };
+        });
         Ok((flags, nread))
     }
 

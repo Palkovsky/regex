@@ -580,29 +580,29 @@ impl Hir {
     pub fn alternation(subs: Vec<Hir>) -> Hir {
         // Flatten nested alternations first.
         let mut new = flatten_alternation(subs);
-        
+
         if new.is_empty() {
             return Hir::fail();
         } else if new.len() == 1 {
             return new.pop().unwrap();
         }
-        
+
         // Try to optimize by converting singletons to character classes.
         if let Some(hir) = try_singleton_optimization(&new) {
             return hir;
         }
-        
+
         // Try to merge multiple character classes.
         if let Some(hir) = try_class_optimization(&new) {
             return hir;
         }
-        
+
         // Factor out a common prefix if we can.
         new = match lift_common_prefix(new) {
             Ok(hir) => return hir,
             Err(unchanged) => unchanged,
         };
-        
+
         let props = Properties::alternation(&new);
         Hir { kind: Box::new(HirKind::Alternation(new)), props }
     }
@@ -1213,7 +1213,17 @@ impl<'a> Iterator for ClassUnicodeIter<'a> {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
-#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, bincode::Encode, bincode::Decode)]
+#[derive(
+    Clone,
+    Copy,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    bincode::Encode,
+    bincode::Decode,
+)]
 pub struct ClassUnicodeRange {
     start: char,
     end: char,
@@ -1491,7 +1501,17 @@ impl<'a> Iterator for ClassBytesIter<'a> {
 ///
 /// The range is closed. That is, the start and end of the range are included
 /// in the range.
-#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, bincode::Encode, bincode::Decode)]
+#[derive(
+    Clone,
+    Copy,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    bincode::Encode,
+    bincode::Decode,
+)]
 pub struct ClassBytesRange {
     start: u8,
     end: u8,
@@ -1662,7 +1682,10 @@ pub enum Look {
 }
 
 impl bincode::Encode for Look {
-    fn encode<E: bincode::enc::Encoder>(&self, encoder: &mut E) -> core::result::Result<(), bincode::error::EncodeError> {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> core::result::Result<(), bincode::error::EncodeError> {
         self.as_repr().encode(encoder)
     }
 }
@@ -2665,7 +2688,9 @@ impl Properties {
 ///
 /// This is useful for efficiently tracking look-around assertions. For
 /// example, an [`Hir`] provides properties that return `LookSet`s.
-#[derive(Clone, Copy, Default, Eq, PartialEq, bincode::Encode, bincode::Decode)]
+#[derive(
+    Clone, Copy, Default, Eq, PartialEq, bincode::Encode, bincode::Decode,
+)]
 pub struct LookSet {
     /// The underlying representation this set is exposed to make it possible
     /// to store it somewhere efficiently. The representation is that
@@ -2958,7 +2983,7 @@ fn class_chars(hirs: &[Hir]) -> Option<Class> {
 }
 
 /// Flatten nested alternations into a single vector of HIR expressions.
-/// 
+///
 /// This function takes a vector of HIR expressions and flattens any nested
 /// alternations into a single level. It preserves the order of alternatives.
 #[inline(never)]
@@ -2982,7 +3007,7 @@ fn flatten_alternation(subs: Vec<Hir>) -> Vec<Hir> {
 }
 
 /// Try to optimize an alternation of singleton literals into a character class.
-/// 
+///
 /// This looks for the special case of 'char1|char2|...|charN' and collapses
 /// that into a class. Note that we look for 'char' first and then bytes. The
 /// issue here is that if we find both non-ASCII codepoints and non-ASCII
@@ -3009,7 +3034,7 @@ fn try_singleton_optimization(hirs: &[Hir]) -> Option<Hir> {
 }
 
 /// Try to optimize an alternation of character classes into a single class.
-/// 
+///
 /// Similar to singleton chars, we can also look for alternations of classes.
 /// Those can be smushed into a single class.
 #[inline(never)]

@@ -263,6 +263,7 @@ impl StartByteMap {
     /// an error is returned. Upon success, the number of bytes read along with
     /// the map are returned. The number of bytes read is always a multiple of
     /// 8.
+    #[inline(never)]
     pub(crate) fn from_bytes(
         slice: &[u8],
     ) -> Result<(StartByteMap, usize), DeserializeError> {

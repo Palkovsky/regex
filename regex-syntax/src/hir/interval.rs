@@ -394,14 +394,7 @@ impl<'a, I> Iterator for IntervalSetIter<'a, I> {
 }
 
 pub trait Interval:
-    Clone
-    + Copy
-    + Debug
-    + Default
-    + Eq
-    + PartialEq
-    + PartialOrd
-    + Ord
+    Clone + Copy + Debug + Default + Eq + PartialEq + PartialOrd + Ord
 {
     type Bound: Bound;
 

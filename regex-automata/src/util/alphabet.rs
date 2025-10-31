@@ -809,6 +809,7 @@ impl ByteSet {
     /// incorrect length or is otherwise malformed, then an error is returned.
     /// Upon success, the number of bytes read along with the set are returned.
     /// The number of bytes read is always a multiple of 8.
+    #[inline(never)]
     pub(crate) fn from_bytes(
         slice: &[u8],
     ) -> Result<(ByteSet, usize), DeserializeError> {

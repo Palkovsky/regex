@@ -22,11 +22,11 @@
 // multi-pattern `RegexSet`, respectively.
 
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     sync::Arc,
     vec,
     vec::Vec,
-    boxed::Box,
 };
 
 use regex_automata::{
@@ -58,7 +58,11 @@ impl Builder {
         metac
             .nfa_size_limit(Some(10 * (1 << 20)))
             .hybrid_cache_capacity(2 * (1 << 20));
-        let mut b = Box::new(Builder { pats: vec![], metac, syntaxc: syntax::Config::default() });
+        let mut b = Box::new(Builder {
+            pats: vec![],
+            metac,
+            syntaxc: syntax::Config::default(),
+        });
         b.pats.extend(patterns.into_iter().map(|p| p.as_ref().to_string()));
         b
     }
@@ -87,7 +91,10 @@ impl Builder {
             .configure(&metac)
             .syntax(&syntaxc)
             .build(&pattern)
-            .map(|meta| crate::bytes::Regex { meta, pattern: pattern.to_string() })
+            .map(|meta| crate::bytes::Regex {
+                meta,
+                pattern: pattern.to_string(),
+            })
             .map_err(Error::from_meta_build_error)
     }
 
@@ -119,7 +126,10 @@ impl Builder {
             .configure(&metac)
             .syntax(&syntaxc)
             .build_many(&self.pats)
-            .map(|meta| crate::bytes::RegexSet { meta, patterns: self.pats.clone() })
+            .map(|meta| crate::bytes::RegexSet {
+                meta,
+                patterns: self.pats.clone(),
+            })
             .map_err(Error::from_meta_build_error)
     }
 
@@ -186,10 +196,13 @@ impl Builder {
 }
 
 pub(crate) mod string {
-    use alloc::{string::{String, ToString}, vec::Vec};
+    use crate::{error::Error, Regex, RegexSet};
+    use alloc::{
+        string::{String, ToString},
+        vec::Vec,
+    };
     use regex_automata::{meta, nfa::thompson::WhichCaptures, MatchKind};
     use regex_syntax::hir::Hir;
-    use crate::{error::Error, Regex, RegexSet};
 
     use super::Builder;
 
@@ -237,10 +250,10 @@ pub(crate) mod string {
         }
 
         /// Builds a `Regex` from a JSON-encoded HIR (High-level Intermediate Representation).
-        pub fn build_from_hir(&self, hir: &Hir) -> Result<Regex, Error> {            
+        pub fn build_from_hir(&self, hir: &Hir) -> Result<Regex, Error> {
             let mut metac = self.builder.metac.clone();
             metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(true);
-            
+
             meta::Builder::new()
                 .configure(&metac)
                 .build_from_hir(hir)
@@ -831,7 +844,8 @@ pub(crate) mod string {
         pub fn hirs(&self) -> Result<Vec<Hir>, Error> {
             let mut syntaxc = self.builder.syntaxc.clone();
             syntaxc.utf8(true);
-            let pats: Vec<&str> = self.builder.pats.iter().map(|s| s.as_str()).collect();
+            let pats: Vec<&str> =
+                self.builder.pats.iter().map(|s| s.as_str()).collect();
             meta::Builder::new()
                 .syntax(&syntaxc)
                 .build_many_hirs(&pats)
@@ -839,13 +853,16 @@ pub(crate) mod string {
         }
 
         /// Builds a `RegexSet` from a JSON-encoded HIR (High-level Intermediate Representation).
-        pub fn build_from_hirs(&self,hirs: &Vec<Hir>) -> Result<RegexSet, Error> {            
+        pub fn build_from_hirs(
+            &self,
+            hirs: &Vec<Hir>,
+        ) -> Result<RegexSet, Error> {
             let mut metac = self.builder.metac.clone();
             metac
                 .match_kind(MatchKind::All)
                 .utf8_empty(true)
                 .which_captures(WhichCaptures::None);
-            
+
             meta::Builder::new()
                 .configure(&metac)
                 .build_many_from_hir(&hirs)
@@ -1396,13 +1413,16 @@ pub(crate) mod string {
 }
 
 pub(crate) mod bytes {
-    use alloc::{string::{String, ToString}, vec::Vec};
-    use regex_automata::{meta, nfa::thompson::WhichCaptures, MatchKind};
-    use regex_syntax::hir::{self, Hir};
     use crate::{
         bytes::{Regex, RegexSet},
         error::Error,
     };
+    use alloc::{
+        string::{String, ToString},
+        vec::Vec,
+    };
+    use regex_automata::{meta, nfa::thompson::WhichCaptures, MatchKind};
+    use regex_syntax::hir::{self, Hir};
 
     use super::Builder;
 
@@ -1453,11 +1473,14 @@ pub(crate) mod bytes {
         pub fn build_from_hir(&self, hir: &Hir) -> Result<Regex, Error> {
             let mut metac = self.builder.metac.clone();
             metac.match_kind(MatchKind::LeftmostFirst).utf8_empty(false);
-            
+
             meta::Builder::new()
                 .configure(&metac)
                 .build_from_hir(hir)
-                .map(|meta| crate::bytes::Regex { meta, pattern: String::new() })
+                .map(|meta| crate::bytes::Regex {
+                    meta,
+                    pattern: String::new(),
+                })
                 .map_err(Error::from_meta_build_error)
         }
 
@@ -2063,7 +2086,8 @@ pub(crate) mod bytes {
         pub fn hirs(&self) -> Result<Vec<Hir>, Error> {
             let mut syntaxc = self.builder.syntaxc.clone();
             syntaxc.utf8(false);
-            let pats: Vec<&str> = self.builder.pats.iter().map(|s| s.as_str()).collect();
+            let pats: Vec<&str> =
+                self.builder.pats.iter().map(|s| s.as_str()).collect();
             meta::Builder::new()
                 .syntax(&syntaxc)
                 .build_many_hirs(&pats)
@@ -2072,17 +2096,23 @@ pub(crate) mod bytes {
 
         /// Builds a `RegexSet` from HIRs (High-level Intermediate
         /// Representations).
-        pub fn build_from_hirs(&self, hirs: &Vec<Hir>) -> Result<RegexSet, Error> {
+        pub fn build_from_hirs(
+            &self,
+            hirs: &Vec<Hir>,
+        ) -> Result<RegexSet, Error> {
             let mut metac = self.builder.metac.clone();
             metac
                 .match_kind(MatchKind::All)
                 .utf8_empty(false)
                 .which_captures(WhichCaptures::None);
-            
+
             meta::Builder::new()
                 .configure(&metac)
                 .build_many_from_hir(&hirs)
-                .map(|meta| crate::bytes::RegexSet { meta, patterns: alloc::vec![] })
+                .map(|meta| crate::bytes::RegexSet {
+                    meta,
+                    patterns: alloc::vec![],
+                })
                 .map_err(Error::from_meta_build_error)
         }
 

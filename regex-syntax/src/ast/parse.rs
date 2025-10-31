@@ -742,7 +742,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// returned.
     #[inline(never)]
     fn pop_group(&self, group_concat: ast::Concat) -> Result<ast::Concat> {
-        let (prior_concat, group, ignore_whitespace, alt) = 
+        let (prior_concat, group, ignore_whitespace, alt) =
             self.pop_group_from_stack()?;
         self.parser().ignore_whitespace.set(ignore_whitespace);
         let group = self.finalize_group(group_concat, group, alt);
@@ -757,7 +757,8 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     #[inline(never)]
     fn pop_group_from_stack(
         &self,
-    ) -> Result<(ast::Concat, ast::Group, bool, Option<ast::Alternation>)> {
+    ) -> Result<(ast::Concat, ast::Group, bool, Option<ast::Alternation>)>
+    {
         use self::GroupState::*;
 
         let mut stack = self.parser().stack_group.borrow_mut();
@@ -769,15 +770,12 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 Some(Group { concat, group, ignore_whitespace }) => {
                     Ok((concat, group, ignore_whitespace, Some(alt)))
                 }
-                None | Some(Alternation(_)) => {
-                    Err(self.error(
-                        self.span_char(),
-                        ast::ErrorKind::GroupUnopened,
-                    ))
-                }
+                None | Some(Alternation(_)) => Err(self
+                    .error(self.span_char(), ast::ErrorKind::GroupUnopened)),
             },
             None => {
-                Err(self.error(self.span_char(), ast::ErrorKind::GroupUnopened))
+                Err(self
+                    .error(self.span_char(), ast::ErrorKind::GroupUnopened))
             }
         }
     }
@@ -2010,10 +2008,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         union: ast::ClassSetUnion,
     ) -> ast::ClassSetUnion {
         assert!(self.bump_if("&&"));
-        self.push_class_op(
-            ast::ClassSetBinaryOpKind::Intersection,
-            union,
-        )
+        self.push_class_op(ast::ClassSetBinaryOpKind::Intersection, union)
     }
 
     /// Handle the `--` difference operator in a character class.
@@ -2023,10 +2018,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         union: ast::ClassSetUnion,
     ) -> ast::ClassSetUnion {
         assert!(self.bump_if("--"));
-        self.push_class_op(
-            ast::ClassSetBinaryOpKind::Difference,
-            union,
-        )
+        self.push_class_op(ast::ClassSetBinaryOpKind::Difference, union)
     }
 
     /// Handle the `~~` symmetric difference operator in a character class.

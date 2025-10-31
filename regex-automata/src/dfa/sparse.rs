@@ -1069,7 +1069,7 @@ impl<'a> DFA<&'a [u8]> {
 
         // Prefilters don't support serialization, so they're always absent.
         let pre = None;
-        Ok((DFA { tt, st, special, pre, quitset, flags }, nr))
+        Ok((DFA { tt, st, special, pre, quitset, flags: *flags }, nr))
     }
 }
 

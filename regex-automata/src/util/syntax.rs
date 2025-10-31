@@ -11,7 +11,7 @@ create small config objects like this one that can be passed around and
 composed.
 */
 
-use alloc::{vec, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use regex_syntax::{
     ast,

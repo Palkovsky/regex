@@ -16,9 +16,9 @@ See the [parent module](crate::dfa) for examples.
 */
 
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 #[cfg(feature = "dfa-build")]
 use crate::dfa::dense::BuildError;
