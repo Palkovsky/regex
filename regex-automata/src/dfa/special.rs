@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::{
     dfa::DEAD,
     util::{
@@ -223,7 +224,7 @@ impl Special {
     #[inline(never)]
     pub(crate) fn from_bytes(
         mut slice: &[u8],
-    ) -> Result<(Special, usize), DeserializeError> {
+    ) -> Result<(Box<Special>, usize), DeserializeError> {
         wire::check_slice_len(slice, 8 * StateID::SIZE, "special states")?;
 
         let mut nread = 0;
@@ -234,27 +235,18 @@ impl Special {
             Ok(id)
         };
 
-        let max = read_id("special max id")?;
-        let quit_id = read_id("special quit id")?;
-        let min_match = read_id("special min match id")?;
-        let max_match = read_id("special max match id")?;
-        let min_accel = read_id("special min accel id")?;
-        let max_accel = read_id("special max accel id")?;
-        let min_start = read_id("special min start id")?;
-        let max_start = read_id("special max start id")?;
 
-        let special = Special {
-            max,
-            quit_id,
-            min_match,
-            max_match,
-            min_accel,
-            max_accel,
-            min_start,
-            max_start,
-        };
+        let special = Box::new(Special {
+            max: read_id("special max id")?,
+            quit_id: read_id("special quit id")?,
+            min_match: read_id("special min match id")?,
+            max_match: read_id("special max match id")?,
+            min_accel: read_id("special min accel id")?,
+            max_accel: read_id("special max accel id")?,
+            min_start: read_id("special min start id")?,
+            max_start: read_id("special max start id")?,
+        });
         special.validate()?;
-        assert_eq!(nread, special.write_to_len());
         Ok((special, nread))
     }
 

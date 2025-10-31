@@ -2450,7 +2450,7 @@ impl<'a> DFA<&'a [u32]> {
                 tt: *tt,
                 st: *st,
                 ms: *ms,
-                special,
+                special: *special,
                 accels,
                 pre,
                 quitset,
